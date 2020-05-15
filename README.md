@@ -17,7 +17,7 @@ Pipeline endpoints authenticate using an API key + token mechanism in Validator,
  
 Calling Validator from your pipeline is as simple as modifying the pipeline code to include the following:
  
-    from dataculpa import DataCulpaValidatorHttpRest
+    from dataculpa import DataCulpaValidator
     
     def run():   # your existing "pipeline run" function
           …
@@ -25,21 +25,21 @@ Calling Validator from your pipeline is as simple as modifying the pipeline code
                     # if you want to send multiple data feeds to Validator,
                     # you can push those in via different pipeline_stage names
  
-          dc = DataCulpaValidator("http", yourServerHost, yourServerPort)
-          dc.validator_async(data, 
-                             pipeline_name, 
+          dc = DataCulpaValidator(DataCulpaValidator.HTTP, yourServerHost, yourServerPort)
+          dc.validator_async(pipeline_name, 
                              pipeline_stage, 
                              pipeline_environment, 
-                             extra_metadata)
+                             data,
+			     extra_metadata)
           …
 
 The `pipeline_name`, `_stage`, and `_environment` values are all strings of your choosing--you may wish to call Validator from both test and production environments, for example, or at multiple stages in pipeline processing, such as "ingest", "post_cleaning", "outputs"--and these top-level metadata fields help to organize your dashboards and visualizations when analyzing the results.
  
-The `dc_validate_async` and `dc_validate_sync calls` capture both the data you want Validator to analyze and any extra metadata that you want to tag on the data.  Metadata might include your software version, memory usage, uptime, CPU load, or any other potentially-useful metadata.
+The `validate_async` and `validate_sync` calls capture both the data you want Validator to analyze and any extra metadata that you want to tag on the data.  Metadata might include your software version, memory usage, uptime, CPU load, or any other potentially-useful attributes.
  
 The async call will immediately return after connecting to Validator and the client call will return a job_id that you can later query for status or append additional metadata:
  
-        dc_validate_update(job_id, metadata, is_finished)
+        dc.validate_update(job_id, metadata, is_finished)
  
 Marking the job_id as finished by setting is_finished to true will let Validator calculate an approximate run time for your pipeline, which can be an important attribute for correlating some times of errors.  Validator can also mark the time offsets when using the pipeline_stage fields so that you can understand times of processing through the different stages of pipeline operation.
  
@@ -67,8 +67,6 @@ Open the UI via a web browser. Validator uses Okta for authentication, even with
 The pipeline dashboards page provides a high level view of pipeline activity within your Validator instance. The main graph shows the number of records processed and when, going back 14 days.  Initially the graph will be sparse until you have some running history with Validator.
 
 "You don’t have any pipelines yet; learn how to set one up now!"
-
-Maybe we include some sample data/pipeline to look at when the user installs?
 
 ### Drilling into a Specific Pipeline
 
