@@ -19,13 +19,13 @@ Calling Validator from your pipeline is as simple as modifying the pipeline code
  
     from dataculpa import DataCulpaValidatorHttpRest
     
-    def run():   # your existing “pipeline run” function
+    def run():   # your existing "pipeline run" function
           …
           data = [] # array of dictionaries suitable for JSON encoding
                     # if you want to send multiple data feeds to Validator,
                     # you can push those in via different pipeline_stage names
  
-          dc = DataCulpaValidator(“http”, yourServerHost, yourServerPort)
+          dc = DataCulpaValidator("http", yourServerHost, yourServerPort)
           dc.validator_async(data, 
                              pipeline_name, 
                              pipeline_stage, 
