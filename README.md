@@ -123,6 +123,6 @@ Once you have a pipeline connecting to Validator and pushing data, the data are 
 You can perform the following operations to evaluate pipeline performance:
 * View records throughput over time
 * View schema changes over time.
-** Compare schema layouts to others in a multi-way diff
+  * Compare schema layouts to others in a multi-way diff
 * View value changes over time (min, max, avg)
 * Compare multiple time periods by manually selecting time offsets or keying on metadata or field data to select windows for comparison.
