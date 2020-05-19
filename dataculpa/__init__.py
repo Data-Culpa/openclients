@@ -63,21 +63,43 @@ class DataCulpaValidator:
         # call the DC server, wait for feedback
         path = "validate/" + pipeline_name
         headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
-        r = requests.post(url=self._get_base_url() + path, data=rs_str, headers=headers)
-        print("RESPONSE: ", r)
-        print(r.content)
-        return
+        r = requests.post(url=self._get_base_url() + path, 
+                          data=rs_str, 
+                          headers=headers)
+        return r.content
     
     def validate_async(self,
                        pipeline_name, 
-                       pipeline_stage,
-                       pipeline_environment,
+                       pipeline_stage="default",
+                       pipeline_environment="default",
                        record_set,
                        extra_metadata):
         # call and immediately return, nhttpot waiting for server connection.
         # FIXME: timeouts on network connectivity, etc.
         job_id = "not implemented"
         return job_id
+
+    def queue_record(self,
+                    pipeline_name, 
+                    pipeline_stage="default",
+                    pipeline_environment="default",
+                    data_item,
+                    extra_metadata):
+
+        return
+
+    def queue_interim_validate(self,
+                               pipeline_name,
+                               pipeline_stage="default",
+                               pipeline_environment="default"):
+        return
+
+    def queue_commit(self,
+                     pipeline_name,
+                     pipeline_stage="default",
+                     pipeline_environment="default"):
+        
+        return
 
     def validate_update(self,
                         job_id,
