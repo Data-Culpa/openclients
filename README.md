@@ -30,7 +30,7 @@ Calling Validator from your pipeline is as simple as modifying the pipeline code
                              pipeline_stage, 
                              pipeline_environment, 
                              data,
-			     extra_metadata)
+                             extra_metadata)
           …
 
 The `pipeline_name`, `_stage`, and `_environment` values are all strings of your choosing--you may wish to call Validator from both test and production environments, for example, or at multiple stages in pipeline processing, such as "ingest", "post_cleaning", "outputs"--and these top-level metadata fields help to organize your dashboards and visualizations when analyzing the results.
@@ -42,7 +42,55 @@ The async call will immediately return after connecting to Validator and the cli
         dc.validate_update(job_id, metadata, is_finished)
  
 Marking the job_id as finished by setting is_finished to true will let Validator calculate an approximate run time for your pipeline, which can be an important attribute for correlating some times of errors.  Validator can also mark the time offsets when using the pipeline_stage fields so that you can understand times of processing through the different stages of pipeline operation.
- 
+
+### Validation Result
+
+Pushing a batch of records into Validator currently provides a strong hint of a data window to process. The processing of the data's consistency is compared to recently observed data; we may adjust windowing and history comparison windows, or offer them as parameters, based on customer feedback.
+
+Calling `validate_sync` or `validate_update(..., is_finished=True)` will kick off consistency processing on the data set and return a structure with the following members:
+
+    input_record_format -- string - the detected format of the data (e.g., json, csv)
+    input_num_records   -- int - the number of records Validator processed/found
+
+    schema_notes        -- null | [string] array -- a list of human-readable debugging notes about the input data's schema
+    schema_similarity_list -- array of floats [0,1] -- one per data item, indicating the similarity of each input data record's schema to recently observed schemas that have been sent to Validator.
+    schema_confidence   -- [0,1] float - the confidence Validator has in the object schema; this is the average of schema_similarity_list
+    
+    dupe_entries -- int - the number of data records that were exact duplicates of previously-seen records. This is useful for identifying when an upstream data feed is sending stale records.
+    dupe_warnings -- string array - a list of human-readable debugging notes about any duplicates.
+    
+    record_value_confidence -- array of floats [0,1] -- one per data item, indicating whether we believe the actual value of a given record
+    record_value_notes -- human-readable debugging notes
+    
+    field_value_confidence - dictionary of fields across all the records and our confidence that the values are good across the records.
+    
+    processing_time - float - wall-clock seconds that Validator took to process the record set
+    
+    internal_error - boolean - True if Validator had an internal error while processing the data. If this is set, please contact Data Culpa support at hello@dataculpa.com
+    internal_error_notes - array of strings - 
+
+
+### Data Queueing
+
+The usual `validate_*` calls assume a batch of data is ready to be processed. This is great for jobs that are processing batches of new data, but it's not useful for one-offs, such as an event that dispatches and wants Validator's interpreation on a single record. Validator provides a queuing set of calls, both async and synchrnous for this mode of operation:
+
+    dc.queue_record(pipeline_name, 
+                    pipeline_stage, 
+                    pipeline_environment, 
+                    data_item,
+                    extra_metadata) --> { "queue_count": 1, "queue_start": <datetime of first element> }
+     
+    dc.queue_interim_validate(pipeline_name, 
+                              pipeline_stage, 
+                              pipeline_environment) --> { returns a validation record of the items in the queue so far without commiting the queued data }
+		    
+    dc.queue_commit(pipeline_name, 
+                    pipeline_stage, 
+                    pipeline_environment) --> { <validation record> }
+
+Note that only one queue may be operational at a time for a given pipeline name + stage + environment combination.
+
+We welcome feedback on this feature.
 
 ### Logging into the Validator UI
 
@@ -72,3 +120,9 @@ The pipeline dashboards page provides a high level view of pipeline activity wit
 
 Once you have a pipeline connecting to Validator and pushing data, the data are immediately available in the pipeline screen to review.
 
+You can perform the following operations to evaluate pipeline performance:
+* View records throughput over time
+* View schema changes over time.
+  * Compare schema layouts to others in a multi-way diff
+* View value changes over time (min, max, avg)
+* Compare multiple time periods by manually selecting time offsets or keying on metadata or field data to select windows for comparison.
