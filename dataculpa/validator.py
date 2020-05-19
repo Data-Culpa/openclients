@@ -69,22 +69,22 @@ class DataCulpaValidator:
         return r.content
     
     def validate_async(self,
+                       record_set,
                        pipeline_name, 
                        pipeline_stage="default",
                        pipeline_environment="default",
-                       record_set,
-                       extra_metadata):
+                       extra_metadata=None):
         # call and immediately return, nhttpot waiting for server connection.
         # FIXME: timeouts on network connectivity, etc.
         job_id = "not implemented"
         return job_id
 
     def queue_record(self,
+                    data_item,
                     pipeline_name, 
                     pipeline_stage="default",
                     pipeline_environment="default",
-                    data_item,
-                    extra_metadata):
+                    extra_metadata=None):
 
         return
 
