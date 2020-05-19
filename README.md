@@ -49,26 +49,21 @@ Pushing a batch of records into Validator currently provides a strong hint of a 
 
 Calling `validate_sync` or `validate_update(..., is_finished=True)` will kick off consistency processing on the data set and return a structure with the following members:
 
-    input_record_format -- string - the detected format of the data (e.g., json, csv)
-    input_num_records   -- int - the number of records Validator processed/found
-
-    schema_notes        -- null | [string] array -- a list of human-readable debugging notes about the input data's schema
-    schema_similarity_list -- array of floats [0,1] -- one per data item, indicating the similarity of each input data record's schema to recently observed schemas that have been sent to Validator.
-    schema_confidence   -- [0,1] float - the confidence Validator has in the object schema; this is the average of schema_similarity_list
-    
-    dupe_entries -- int - the number of data records that were exact duplicates of previously-seen records. This is useful for identifying when an upstream data feed is sending stale records.
-    dupe_warnings -- string array - a list of human-readable debugging notes about any duplicates.
-    
-    record_value_confidence -- array of floats [0,1] -- one per data item, indicating whether we believe the actual value of a given record
-    record_value_notes -- human-readable debugging notes
-    
-    field_value_confidence - dictionary of fields across all the records and our confidence that the values are good across the records.
-    
-    processing_time - float - wall-clock seconds that Validator took to process the record set
-    
-    internal_error - boolean - True if Validator had an internal error while processing the data. If this is set, please contact Data Culpa support at hello@dataculpa.com
-    internal_error_notes - array of strings - 
-
+| Field Name | Type | Value Range | Description|
+|------------|------|-------------|------------|
+|input_record_format | string | json \| csv | the detected format of the data |
+|input_num_records   |  int | >= 0 | the number of records Validator processed/found |
+|schema_notes        | string array | null or list of values | a list of human-readable debugging notes about the input data's schema |
+|schema_similarity_list | float array | [0,1] | one per data item, indicating the similarity of each input data record's schema to recently observed schemas that have been sent to Validator. |
+|schema_confidence | float | [0,1] | the confidence Validator has in the object schema; this is the average of `schema_similarity_list` |
+|dupe_entries | int | >= 0 | the number of data records that were exact duplicates of previously-seen records. This is useful for identifying when an upstream data feed is sending stale records. |
+| dupe_warnings |string array | null or any | a list of human-readable debugging notes about any duplicates. |
+|record_value_confidence | float array | [0,1] | one per data item, indicating whether we believe the actual value of a given record |
+|record_value_notes | string array | null or a list | human-readable debugging notes |
+| field_value_confidence | dict<string, float> | floats are [0,1] | dictionary of fields across all the records and our confidence that the values are good across the records. |
+|processing_time | float | > 0.0 | wall-clock seconds that Validator took to process the record set |
+|internal_error | boolean | T/F | True if Validator had an internal error while processing the data. If this is set, please contact Data Culpa support at hello@dataculpa.com |
+|internal_error_notes | string array | null or a list | List of internal error descriptions
 
 ### Data Queueing
 
