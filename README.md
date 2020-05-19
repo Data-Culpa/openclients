@@ -1,8 +1,8 @@
 # Data Culpa Validator Getting Started
 
-Welcome to Data Culpa Validator! You can use Data Culpa Validator to ensure proper long-running operation of your data pipelines by capturing inputs from upstream, by capturing outputs of code your pipeline runs, and even by capturing specific values used in the operation of the pipeline.  When things go wrong, Data Culpa Validator lets you easily compare operations from present to past and visualize the changes in these operations over time across a variety of dimensions: runtime throughput, schema changes, and even type and value changes within fields.
+Welcome to Data Culpa Validator, a data quality monitoring solution all your data pipelines! You can use Data Culpa Validator to ensure the proper long-running operation of data pipelines, whether those pipelines are supporting AI analysis, BI reporting, ETL operations, or some other data-intensive process. Validator captures inputs from upstream, from data pipeline output, and from specific values used in the pipeline's operation. Validator automatically raises alerts when it detects anomalies that could jeopardize results. Data Culpa Validator makes it easy for you to compare operations from present to past and to visualize changes in operations over time across a variety of dimensions: runtime throughput, schema changes, and even type and value changes within fields.
  
-Data Culpa Validator is built for flexible operations and scale. You may push data from your pipeline into Validator asynchronously for high-throughput operation and post facto analysis, or you can call Data Culpa Validator in synchronous mode to capture and react to problematic data before operations continue.
+Data Culpa Validator is built for flexible operations and scale. You can push data from your pipeline into Validator asynchronously for high-throughput operation and post facto analysis, or you can call Data Culpa Validator in synchronous mode to capture and react to problematic data before operations continue.
 
 
 
@@ -11,7 +11,7 @@ Data Culpa Validator is built for flexible operations and scale. You may push da
  
 Data Culpa Validator is distributed as an Ubuntu package that contains both the user interface and data processing code. Validator uses a Mongo database for its private cache of values.
  
-Validator includes an open source python client library that enables JSON-formatted HTTP REST calls to the Validator processing server; we expect to provide other IPC mechanisms in later releases (such as message queues) and welcome feedback on customers need for transports.
+Validator includes an open source python client library that enables JSON-formatted HTTP REST calls to the Validator processing server. We expect to provide other IPC mechanisms in later releases (such as message queues), and we welcome feedback from customers about other transports to support.
  
 Pipeline endpoints authenticate using an API key + token mechanism in Validator, which you can secure using your existing secrets infrastructure for your pipeline.
  
@@ -33,15 +33,15 @@ Calling Validator from your pipeline is as simple as modifying the pipeline code
                              extra_metadata)
           …
 
-The `pipeline_name`, `_stage`, and `_environment` values are all strings of your choosing--you may wish to call Validator from both test and production environments, for example, or at multiple stages in pipeline processing, such as "ingest", "post_cleaning", "outputs"--and these top-level metadata fields help to organize your dashboards and visualizations when analyzing the results.
+The `pipeline_name`, `_stage`, and `_environment` values are all strings of your choosing. You may wish to call Validator from both test and production environments, for example, or at multiple stages in pipeline processing, such as "ingest", "post_cleaning", "outputs." These top-level metadata fields help to organize your dashboards and visualizations when analyzing the results.
  
-The `validate_async` and `validate_sync` calls capture both the data you want Validator to analyze and any extra metadata that you want to tag on the data.  Metadata might include your software version, memory usage, uptime, CPU load, or any other potentially-useful attributes.
+The `validate_async` and `validate_sync` calls capture both the data you want Validator to analyze and any extra metadata that you want to tag on the data. Metadata might include your software version, memory usage, uptime, CPU load, or any other potentially-useful attributes.
  
-The async call will immediately return after connecting to Validator and the client call will return a job_id that you can later query for status or append additional metadata:
+The async call will immediately return after connecting to Validator. The client call will return a job_id that you can later query for to discover the job's status or to append additional metadata:
  
         dc.validate_update(job_id, metadata, is_finished)
  
-Marking the job_id as finished by setting is_finished to true will let Validator calculate an approximate run time for your pipeline, which can be an important attribute for correlating some times of errors.  Validator can also mark the time offsets when using the pipeline_stage fields so that you can understand times of processing through the different stages of pipeline operation.
+When monitoring data quality, it can be useful to know the approximate run time for your pipeline. You can mark a job (specified as job_id) as finished by setting is_finished to true. Once the job finishes, Validator calculates the run time for the pipeline, which can be useful to resolving errors. Validator can also mark time offsets when using the pipeline_stage fields, so that you can understand times of processing through the different stages of pipeline operation.
 
 ### Validation Result
 
@@ -112,7 +112,7 @@ Open the UI via a web browser. Validator uses Okta for authentication, even with
 
 ### Pipeline Dashboards
 
-The pipeline dashboards page provides a high level view of pipeline activity within your Validator instance. The main graph shows the number of records processed and when, going back 14 days.  Initially the graph will be sparse until you have some running history with Validator.
+The pipeline dashboards page provides a high level view of pipeline activity within your Validator instance. The main graph shows the number of records processed and when, going back 14 days. Initially the graph will be sparse until you have some running history with Validator.
 
 "You don’t have any pipelines yet; learn how to set one up now!"
 
