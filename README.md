@@ -1,8 +1,8 @@
 # Data Culpa Validator Getting Started
 
-Welcome to Data Culpa Validator, a data quality monitoring solution all your data pipelines! You can use Data Culpa Validator to ensure the proper long-running operation of data pipelines, whether those pipelines are supporting AI analysis, BI reporting, ETL operations, or some other data-intensive process. Validator captures inputs from upstream, from data pipeline output, and from specific values used in the pipeline's operation. Validator automatically raises alerts when it detects anomalies that could jeopardize results. Data Culpa Validator makes it easy for you to compare operations from present to past and to visualize changes in operations over time across a variety of dimensions: runtime throughput, schema changes, and even type and value changes within fields.
+Welcome to Data Culpa Validator, a data quality monitoring solution for all your data pipelines. You can use Data Culpa Validator to ensure the proper long-running operation of data pipelines, whether those pipelines are supporting AI analysis, BI reporting, ETL operations, or some other data-intensive process. Validator captures inputs from upstream, from data pipeline output, and from specific values used in the pipeline's operation. Validator automatically raises alerts when it detects anomalies that could jeopardize results. Validator makes it easy for you to compare operations from present to past and to visualize changes in operations over time across a variety of dimensions: runtime throughput, schema changes, and even type and value changes within fields.
  
-Data Culpa Validator is built for flexible operations and scale. You can push data from your pipeline into Validator asynchronously for high-throughput operation and post facto analysis, or you can call Data Culpa Validator in synchronous mode to capture and react to problematic data before operations continue.
+Data Culpa Validator is built for flexible operations and scale. You can push data from your pipeline into Validator asynchronously for high-throughput operation and post facto analysis, or you can call Validator in synchronous mode to capture and react to problematic data before operations continue.
 
 
 
@@ -74,10 +74,10 @@ Calling `validate_sync` or `validate_update(..., is_finished=True)` will kick of
 
 The usual `validate_*` calls assume a batch of data is ready to be processed. This is great for jobs that are processing batches of new data, but it's not useful for one-offs, such as an event that dispatches and wants Validator's interpreation on a single record. Validator provides a queuing set of calls, both async and synchrnous for this mode of operation:
 
-    dc.queue_record(pipeline_name, 
+    dc.queue_record(record,
+                    pipeline_name, 
                     pipeline_stage, 
                     pipeline_environment, 
-                    data_item,
                     extra_metadata) --> { "queue_count": 1, "queue_start": <datetime of first element> }
      
     dc.queue_interim_validate(pipeline_name, 
