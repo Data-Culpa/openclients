@@ -58,7 +58,7 @@ Calling `validate_sync` or `validate_update(..., is_finished=True)` will kick of
 |schema_confidence | float | [0,1] | the confidence Validator has in the object schema; this is the average of `schema_similarity_list` |
 |dupe_entries | int | >= 0 | the number of data records that were exact duplicates of previously-seen records. This is useful for identifying when an upstream data feed is sending stale records. |
 | dupe_warnings |string array | null or any | a list of human-readable debugging notes about any duplicates. |
-|record_value_confidence | float array | [0,1] | one per data item, indicating whether we believe the actual value of a given record |
+|record_value_confidence | float array | [0,1] | one per data item, indicating overall confidence in the values of the record |
 |record_value_notes | string array | null or a list | human-readable debugging notes |
 | field_value_confidence | dict<string, float> | floats are [0,1] | dictionary of fields across all the records and our confidence that the values are good across the records. |
 |processing_time | float | > 0.0 | wall-clock seconds that Validator took to process the record set |
@@ -67,7 +67,7 @@ Calling `validate_sync` or `validate_update(..., is_finished=True)` will kick of
 
 ### Data Queueing
 
-The usual `validate_*` calls assume a batch of data is ready to be processed. This is great for jobs that are processing batches of new data, but it's not useful for one-offs, such as an event that dispatches and wants Validator's interpreation on a single record. Validator provides a queuing set of calls, both async and synchrnous for this mode of operation:
+The usual `validate_*` calls assume a batch of data is ready to be processed. This is great for jobs that are processing batches of new data, but it's not useful for one-offs, such as an event that dispatches and wants Validator's interpretion on a single record. Validator provides a queuing set of calls, both async and synchrnous for this mode of operation:
 
     dc.queue_record(record,
                     pipeline_name, 
@@ -104,6 +104,9 @@ The --status command will print out the running services and such:
 
 Open the UI via a web browser. Validator uses Okta for authentication, even with your local installation. 
 
+### Create API Tokens for Pipeline Callers
+
+In the UI, navigate to _Manager > API Users_ to set up new data pipeline users and generate access tokens that you can integrate into your secrets manager. We recommend creating a unique user for each pipeline.
 
 ### Pipeline Dashboards
 
