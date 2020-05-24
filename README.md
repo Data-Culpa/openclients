@@ -27,13 +27,15 @@ Calling Validator from your pipeline is as simple as modifying the pipeline code
  
           dc = DataCulpaValidator(DataCulpaValidator.HTTP, yourServerHost, yourServerPort)
           dc.validator_async(pipeline_name, 
-                             pipeline_stage, 
                              pipeline_environment, 
+                             pipeline_stage, 
                              data,
                              extra_metadata)
           …
 
-The `pipeline_name`, `_stage`, and `_environment` values are all strings of your choosing. You may wish to call Validator from both test and production environments, for example, or at multiple stages in pipeline processing, such as "ingest", "post_cleaning", "outputs." These top-level metadata fields help to organize your dashboards and visualizations when analyzing the results.
+The `pipeline_name`, `_environment`, `_stage`, and `_version` values are all strings of your choosing. You may wish to call Validator from both test and production environments, for example, or at multiple stages in pipeline processing, such as "ingest", "post_cleaning", "outputs." These top-level metadata fields help to organize your dashboards and visualizations when analyzing the results. 
+
+Note that `_name`, `_environment`, and `_stage` are used to select a specific pipeline; `_version` is merely top-level metadata and is not used as a selector.
  
 The `validate_async` and `validate_sync` calls capture both the data you want Validator to analyze and any extra metadata that you want to tag on the data. Metadata might include your software version, memory usage, uptime, CPU load, or any other potentially-useful attributes.
  
@@ -58,9 +60,9 @@ Calling `validate_sync` or `validate_update(..., is_finished=True)` will kick of
 |schema_confidence | float | [0,1] | the confidence Validator has in the object schema; this is the average of `schema_similarity_list` |
 |dupe_entries | int | >= 0 | the number of data records that were exact duplicates of previously-seen records. This is useful for identifying when an upstream data feed is sending stale records. |
 | dupe_warnings |string array | null or any | a list of human-readable debugging notes about any duplicates. |
-|record_value_confidence | float array | [0,1] | one per data item, indicating overall confidence in the values of the record |
+|record_value_confidence | float array | [0,1] | one per data item (row), indicating overall confidence in the values of the record |
 |record_value_notes | string array | null or a list | human-readable debugging notes |
-| field_value_confidence | dict<string, float> | floats are [0,1] | dictionary of fields across all the records and our confidence that the values are good across the records. |
+| field_value_confidence | dict<string, float> | floats are [0,1] | dictionary of fields (columns) and our confidence that the values are good across the records. |
 |processing_time | float | > 0.0 | wall-clock seconds that Validator took to process the record set |
 |internal_error | boolean | T/F | True if Validator had an internal error while processing the data. If this is set, please contact Data Culpa support at hello@dataculpa.com |
 |internal_error_notes | string array | null or a list | List of internal error descriptions
@@ -71,17 +73,14 @@ The usual `validate_*` calls assume a batch of data is ready to be processed. Th
 
     dc.queue_record(record,
                     pipeline_name, 
-                    pipeline_stage, 
-                    pipeline_environment, 
+                    pipeline_environment="default", 
+                    pipeline_stage="default", 
+                    pipeline_version="default",
                     extra_metadata) --> { "queue_count": 1, "queue_start": <datetime of first element> }
      
-    dc.queue_interim_validate(pipeline_name, 
-                              pipeline_stage, 
-                              pipeline_environment) --> { returns a validation record of the items in the queue so far without commiting the queued data }
+    dc.queue_interim_validate(queue_id) --> { returns a validation record of the items in the queue so far without commiting the queued data }
 		    
-    dc.queue_commit(pipeline_name, 
-                    pipeline_stage, 
-                    pipeline_environment) --> { <validation record> }
+    dc.queue_commit(queue_id) --> { <validation record> }
 
 Note that only one queue may be operational at a time for a given pipeline name + stage + environment combination.
 

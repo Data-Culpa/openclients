@@ -1,5 +1,5 @@
 #
-# __init__.py
+# validator.py
 # Data Culpa Python Client
 #
 # Copyright (c) 2020 Data Culpa, Inc.
@@ -26,22 +26,27 @@
 import json
 import requests
 
+HAS_PANDAS = False
+try:
+    import pandas as pd
+    HAS_PANDAS = True
+except:
+    pass 
+
 class DataCulpaValidator:
     HTTP = "http"
+    HTTPS = "https"
+    # FIXME: http, message queues, etc.
 
     def __init__(self, protocol, dc_host, dc_port=7777):
         self.protocol = protocol
-        assert self.protocol == self.HTTP, "invalid protocol: only http is supported in this release"
+        #if self.protocol == self.HTTP:
+        #    assert dc_host == "localhost", "HTTP is only supported for localhost"
+        #else:
+        #assert self.protocol == self.HTTPS, "invalid protocol: only https is supported in this release"
 
         self.host = dc_host
         self.port = dc_port
-
-        # HTTPS vs HTTP
-        # HTTP proxies
-        # Lots of things to add here.
-
-        # FIXME: secrets handling.
-
 
     def test_connection(self):
         # FIXME: need to do something useful.
@@ -49,18 +54,23 @@ class DataCulpaValidator:
         raise Exception("Not implemented")
 
     def _get_base_url(self):
-        return "http://%s:%s/" % (self.host, self.port)
+        return "%s://%s:%s/" % (self.protocol, self.host, self.port)
 
     def validate_blocking(self, 
                           record_set,
                           pipeline_name, 
-                          pipeline_stage="default",
                           pipeline_environment="default",
+                          pipeline_stage="default",
+                          pipeline_version="default",
                           metadata=None):
+
+        if HAS_PANDAS:
+            # FIXME: check for record_set being a pandas dataframe, etc.
+            pass
 
         rs_str = json.dumps(record_set)
 
-        # call the DC server, wait for feedback
+        # call the validator server, wait for feedback
         path = "validate/" + pipeline_name
         headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
         r = requests.post(url=self._get_base_url() + path, 
@@ -71,40 +81,80 @@ class DataCulpaValidator:
     def validate_async(self,
                        record_set,
                        pipeline_name, 
-                       pipeline_stage="default",
                        pipeline_environment="default",
+                       pipeline_stage="default",
                        extra_metadata=None):
         # call and immediately return, nhttpot waiting for server connection.
         # FIXME: timeouts on network connectivity, etc.
+
+
         job_id = "not implemented"
         return job_id
 
+    def _build_pipeline_url_suffix(self,
+                                   pipeline_name, 
+                                   pipeline_environment, 
+                                   pipeline_stage, 
+                                   pipeline_version):
+        s = "%s/%s/%s/%s" % (pipeline_name, pipeline_environment, pipeline_stage, pipeline_version)
+        return s
+
+    def _json_headers(self):
+        headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
+        return headers
+
     def queue_record(self,
-                    data_item,
+                    record,
                     pipeline_name, 
-                    pipeline_stage="default",
                     pipeline_environment="default",
+                    pipeline_stage="default",
+                    pipeline_version="default",
                     extra_metadata=None):
-
-        return
-
-    def queue_interim_validate(self,
-                               pipeline_name,
-                               pipeline_stage="default",
-                               pipeline_environment="default"):
-        return
-
-    def queue_commit(self,
-                     pipeline_name,
-                     pipeline_stage="default",
-                     pipeline_environment="default"):
         
+        assert isinstance(record, dict), "record must be a dict"
+        assert isinstance(pipeline_name, str), "pipeline_name must be a string"
+        if extra_metadata is not None:
+            assert isinstance(extra_metadata, dict), "extra_metadata must be a dict"
+        # endif
+
+        suffix = self._build_pipeline_url_suffix(pipeline_name, 
+                                                 pipeline_environment,
+                                                 pipeline_stage,
+                                                 pipeline_version)   
+        path = "queue/enqueue/" + suffix
+ 
+        rs_str = json.dumps(record)
+        r = requests.post(url=self._get_base_url() + path, 
+                          data=rs_str, 
+                          headers=self._json_headers())
+        try:
+            jr = json.loads(r.content)
+            return jr.get('queue_id')
+        except:
+            print("Error parsing result: __%s__", r.content)
+        return None
+
+    def queue_interim_validate(self, queue_id):
+        path = "queue/interim_validate/%s" % queue_id
         return
+
+    def queue_commit(self, queue_id):
+        path = "queue/commit/%s" % queue_id
+        r = requests.post(url=self._get_base_url() + path, 
+                          data="", 
+                          headers=self._json_headers())
+        try:
+            jr = json.loads(r.content)
+            return jr
+        except:
+            print("Error parsing result: __%s__", r.content)
+        return None
 
     def validate_update(self,
                         job_id,
                         additional_metadata=None,
                         is_finished=False):
+        # what do we do with this additional metadata?
         "not implemented"
         return
 
