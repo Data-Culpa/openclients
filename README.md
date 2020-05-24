@@ -69,7 +69,7 @@ Calling `validate_sync` or `validate_update(..., is_finished=True)` will kick of
 
 ### Data Queueing
 
-The usual `validate_*` calls assume a batch of data is ready to be processed. This is great for jobs that are processing batches of new data, but it's not useful for one-offs, such as an event that dispatches and wants Validator's interpretion on a single record. Validator provides a queuing set of calls, both async and synchrnous for this mode of operation:
+The usual `validate_*` calls assume a batch of data is ready to be processed. This is great for jobs that are processing batches of new data, but it's less convenient for one-offs, such as an event that dispatches and wants Validator's interpretion on a single record. Validator provides a queuing set of calls for this mode of operation:
 
     (queue_id, queue_count, queue_age) = 
     dc.queue_record(record,
@@ -79,7 +79,7 @@ The usual `validate_*` calls assume a batch of data is ready to be processed. Th
                     pipeline_version="default",
                     extra_metadata)
     
-Returns the queue id, the number of items in the queue, and the age of the queue in seconds.
+Returns the queue id, the number of items in the queue, and the age of the queue in seconds. The age value can be used to detect issues, such as an old queue that never got flushed with the `queue_commit()` call below
      
     dc.queue_interim_validate(queue_id) 
     
@@ -89,9 +89,7 @@ Returns a validation record of the items in the queue so far without commiting t
     
 Commits the contents of the queue, erases the queue, and returns a validation record.
 
-Note that only one queue may be operational at a time for a given pipeline name + stage + environment combination.
-
-We welcome feedback on this feature.
+Note that only one queue may be operational at a time for a given pipeline name + stage + environment combination; calling `queue_record()` will append to an existing queue.
 
 ### Logging into the Validator UI
 
@@ -130,3 +128,8 @@ You can perform the following operations to evaluate pipeline performance:
   * Compare schema layouts to others in a multi-way diff
 * View value changes over time (min, max, avg)
 * Compare multiple time periods by manually selecting time offsets or keying on metadata or field data to select windows for comparison.
+
+
+### Questions? Feedback?
+
+We want to build products that people want to use. If you have feedback, suggestions, or feature requests, please get in touch by writing to hello@dataculpa.com or opening an issue in this GitHub repository.
