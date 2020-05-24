@@ -71,16 +71,23 @@ Calling `validate_sync` or `validate_update(..., is_finished=True)` will kick of
 
 The usual `validate_*` calls assume a batch of data is ready to be processed. This is great for jobs that are processing batches of new data, but it's not useful for one-offs, such as an event that dispatches and wants Validator's interpretion on a single record. Validator provides a queuing set of calls, both async and synchrnous for this mode of operation:
 
+    (queue_id, queue_count, queue_age) = 
     dc.queue_record(record,
                     pipeline_name, 
                     pipeline_environment="default", 
                     pipeline_stage="default", 
                     pipeline_version="default",
-                    extra_metadata) --> { "queue_count": 1, "queue_start": <datetime of first element> }
+                    extra_metadata)
+    
+Returns the queue id, the number of items in the queue, and the age of the queue in seconds.
      
-    dc.queue_interim_validate(queue_id) --> { returns a validation record of the items in the queue so far without commiting the queued data }
+    dc.queue_interim_validate(queue_id) 
+    
+Returns a validation record of the items in the queue so far without commiting the queued data.
 		    
-    dc.queue_commit(queue_id) --> { <validation record> }
+    dc.queue_commit(queue_id) 
+    
+Commits the contents of the queue, erases the queue, and returns a validation record.
 
 Note that only one queue may be operational at a time for a given pipeline name + stage + environment combination.
 

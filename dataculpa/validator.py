@@ -129,10 +129,10 @@ class DataCulpaValidator:
                           headers=self._json_headers())
         try:
             jr = json.loads(r.content)
-            return jr.get('queue_id')
+            return jr.get('queue_id'), jr.get('queue_count'), jr.get('queue_age')
         except:
             print("Error parsing result: __%s__", r.content)
-        return None
+        return (None, 0, 0)
 
     def queue_interim_validate(self, queue_id):
         path = "queue/interim_validate/%s" % queue_id
