@@ -25,7 +25,7 @@
 
 import json
 import requests
-
+    
 HAS_PANDAS = False
 try:
     import pandas as pd
@@ -103,7 +103,8 @@ class DataCulpaValidator:
                     pipeline_environment="default",
                     pipeline_stage="default",
                     pipeline_version="default",
-                    extra_metadata=None):
+                    extra_metadata=None,
+                    jsonEncoder=json.JSONEncoder):
         
         assert isinstance(record, dict), "record must be a dict"
         assert isinstance(pipeline_name, str), "pipeline_name must be a string"
@@ -117,7 +118,7 @@ class DataCulpaValidator:
                                                  pipeline_version)   
         path = "queue/enqueue/" + suffix
  
-        rs_str = json.dumps(record)
+        rs_str = json.dumps(record, cls=jsonEncoder, default=str)
         r = requests.post(url=self._get_base_url() + path, 
                           data=rs_str, 
                           headers=self._json_headers())
