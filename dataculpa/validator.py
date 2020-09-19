@@ -25,6 +25,7 @@
 
 import json
 import requests
+import logging
 
 from datetime import datetime
 
@@ -35,11 +36,12 @@ try:
 except:
     pass 
 
+logging.basicConfig(format='%(asctime)s %(message)s', level=logging.DEBUG)
 
 def show_versions():
     # print out some version debug stuff... 
     # see sklearn.show_versions() for inspiration
-    print("Need to implement show_version!")
+    logging.error("Need to implement show_version!")
     return    
 
 class DataCulpaValidator:
@@ -65,7 +67,7 @@ class DataCulpaValidator:
         self.api_secret = api_secret
 
     def __del__(self):
-        print("data culpa destructor called")
+        logging.debug("DataCulpaValidator destructor called")
 
 
     def test_connection(self):
@@ -73,16 +75,16 @@ class DataCulpaValidator:
         r = requests.get(url=url,
                          headers=self._json_headers())
         if r.status_code != 200:
-            print("got status code %s for %s" % (r.status_code, url))
+            logging.error("got status code %s for %s" % (r.status_code, url))
             return 1
 
         try:
             jr = json.loads(r.content)
             if jr.get('status') is None:
-                print("missing status")
+                logging.error("missing status")
                 return 1
         except:
-            print("Error parsing result: __%s__", r.content)
+            logging.error("Error parsing result: __%s__", r.content)
             return 1
 
         # FIXME: needs more error handling.
@@ -126,7 +128,7 @@ class DataCulpaValidator:
  
         rs_str = json.dumps(record, cls=jsonEncoder, default=str)
         post_url = self._get_base_url() + path
-        print("%s: about to post %d bytes to %s" % (datetime.now(), len(rs_str), post_url))
+        logging.debug("%s: about to post %d bytes to %s" % (datetime.now(), len(rs_str), post_url))
 
         try:
             r = requests.post(url=post_url, 
@@ -134,7 +136,7 @@ class DataCulpaValidator:
                             headers=self._json_headers(),
                             timeout=10.0) # 10 second timeout.
         except:
-            print("Probably got a time out...") # maybe set an error/increment an error counter/etc.
+            logging.info("Probably got a time out...") # maybe set an error/increment an error counter/etc.
             return None, 0, 0
         print("%s: done with post" % (datetime.now(),))
 
@@ -142,7 +144,7 @@ class DataCulpaValidator:
             jr = json.loads(r.content)
             return jr.get('queue_id'), jr.get('queue_count'), jr.get('queue_age')
         except:
-            print("Error parsing result: __%s__", r.content)
+            logging.debug("Error parsing result: __%s__", r.content)
 
         # failed to parse I suppose.
         return (None, 0, 0)
@@ -157,7 +159,7 @@ class DataCulpaValidator:
             jr = json.loads(r.content)
             return jr
         except:
-            print("Error parsing result: __%s__", r.content)
+            logging.error("Error parsing result: __%s__", r.content)
         return None
 
     def validation_status(self, queue_id):
@@ -171,5 +173,5 @@ class DataCulpaValidator:
             jr = json.loads(r.content)
             return jr
         except:
-            print("Error parsing result: __%s__", r.content)
+            logging.error("Error parsing result: __%s__", r.content)
         return None
