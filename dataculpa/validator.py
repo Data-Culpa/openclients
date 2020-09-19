@@ -109,7 +109,8 @@ class DataCulpaValidator:
                     pipeline_environment="default",
                     pipeline_stage="default",
                     pipeline_version="default",
-                    extra_metadata=None):
+                    extra_metadata=None,
+                    jsonEncoder=json.JSONEncoder):
         
         assert isinstance(record, dict), "record must be a dict"
         assert isinstance(pipeline_name, str), "pipeline_name must be a string"
@@ -123,7 +124,7 @@ class DataCulpaValidator:
                                                  pipeline_version)   
         path = "queue/enqueue/" + suffix
  
-        rs_str = json.dumps(record)
+        rs_str = json.dumps(record, cls=jsonEncoder, default=str)
         post_url = self._get_base_url() + path
         print("%s: about to post %d bytes to %s" % (datetime.now(), len(rs_str), post_url))
 
@@ -136,6 +137,7 @@ class DataCulpaValidator:
             print("Probably got a time out...") # maybe set an error/increment an error counter/etc.
             return None, 0, 0
         print("%s: done with post" % (datetime.now(),))
+
         try:
             jr = json.loads(r.content)
             return jr.get('queue_id'), jr.get('queue_count'), jr.get('queue_age')
