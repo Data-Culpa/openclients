@@ -26,6 +26,8 @@
 import json
 import requests
 
+from datetime import datetime
+
 HAS_PANDAS = False
 try:
     import pandas as pd
@@ -61,6 +63,10 @@ class DataCulpaValidator:
         self.port = dc_port
         self.api_access_id = api_access_id
         self.api_secret = api_secret
+
+    def __del__(self):
+        print("data culpa destructor called")
+
 
     def test_connection(self):
         url = self._get_base_url() + "test/connection"
@@ -118,14 +124,25 @@ class DataCulpaValidator:
         path = "queue/enqueue/" + suffix
  
         rs_str = json.dumps(record)
-        r = requests.post(url=self._get_base_url() + path, 
-                          data=rs_str, 
-                          headers=self._json_headers())
+        post_url = self._get_base_url() + path
+        print("%s: about to post %d bytes to %s" % (datetime.now(), len(rs_str), post_url))
+
+        try:
+            r = requests.post(url=post_url, 
+                            data=rs_str, 
+                            headers=self._json_headers(),
+                            timeout=10.0) # 10 second timeout.
+        except:
+            print("Probably got a time out...") # maybe set an error/increment an error counter/etc.
+            return None, 0, 0
+        print("%s: done with post" % (datetime.now(),))
         try:
             jr = json.loads(r.content)
             return jr.get('queue_id'), jr.get('queue_count'), jr.get('queue_age')
         except:
             print("Error parsing result: __%s__", r.content)
+
+        # failed to parse I suppose.
         return (None, 0, 0)
 
     def queue_commit(self, queue_id):
