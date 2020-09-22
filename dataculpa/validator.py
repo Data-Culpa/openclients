@@ -50,11 +50,24 @@ class DataCulpaValidator:
     # FIXME: http, message queues, etc.
 
     def __init__(self, 
-                 protocol, 
-                 dc_host, 
+                 pipeline_name, 
+                 pipeline_environment="default",
+                 pipeline_stage="default",
+                 pipeline_version="default",
+                 protocol="http", 
+                 dc_host="localhost", 
                  dc_port=7777, 
                  api_access_id=None, 
-                 api_secret=None):
+                 api_secret=None,
+                 queue_window=20):
+
+        assert isinstance(pipeline_name, str), "pipeline_name must be a string"
+
+        self.pipeline_name = pipeline_name
+        self.pipeline_environment = pipeline_environment
+        self.pipeline_stage = pipeline_stage
+        self.pipeline_version = pipeline_version
+
         self.protocol = protocol
         #if self.protocol == self.HTTP:
         #    assert dc_host == "localhost", "HTTP is only supported for localhost"
@@ -65,6 +78,13 @@ class DataCulpaValidator:
         self.port = dc_port
         self.api_access_id = api_access_id
         self.api_secret = api_secret
+        self.queue_window = queue_window
+        self._queue_buffer = []
+
+        self._queue_errors = []
+        self._queue_id = None
+        self._queue_count = 0
+
 
     def __del__(self):
         logging.debug("DataCulpaValidator destructor called")
@@ -93,12 +113,12 @@ class DataCulpaValidator:
     def _get_base_url(self):
         return "%s://%s:%s/" % (self.protocol, self.host, self.port)
 
-    def _build_pipeline_url_suffix(self,
-                                   pipeline_name, 
-                                   pipeline_environment, 
-                                   pipeline_stage, 
-                                   pipeline_version):
-        s = "%s/%s/%s/%s" % (pipeline_name, pipeline_environment, pipeline_stage, pipeline_version)
+    def _build_pipeline_url_suffix(self):
+        # FIXME: need to base64 encode this stuff.
+        s = "%s/%s/%s/%s" % (self.pipeline_name, 
+                             self.pipeline_environment, 
+                             self.pipeline_stage, 
+                             self.pipeline_version)
         return s
 
     def _json_headers(self):
@@ -107,26 +127,23 @@ class DataCulpaValidator:
 
     def queue_record(self,
                     record,
-                    pipeline_name, 
-                    pipeline_environment="default",
-                    pipeline_stage="default",
-                    pipeline_version="default",
-                    extra_metadata=None,
                     jsonEncoder=json.JSONEncoder):
-        
         assert isinstance(record, dict), "record must be a dict"
-        assert isinstance(pipeline_name, str), "pipeline_name must be a string"
-        if extra_metadata is not None:
-            assert isinstance(extra_metadata, dict), "extra_metadata must be a dict"
-        # endif
+        self._jsonEncoder = jsonEncoder
+        self._queue_buffer.append(record)
+        if len(self._queue_buffer) >= self.queue_window:
+            return self._flush_queue()
+        return None, 0, 0
+    
+    def _append_error(message):
+        self._queue_errors.append( { 'when': datetime.utcnow(), 'message': message })
+        return
 
-        suffix = self._build_pipeline_url_suffix(pipeline_name, 
-                                                 pipeline_environment,
-                                                 pipeline_stage,
-                                                 pipeline_version)   
+    def _flush_queue(self):
+        suffix = self._build_pipeline_url_suffix()   
         path = "queue/enqueue/" + suffix
- 
-        rs_str = json.dumps(record, cls=jsonEncoder, default=str)
+
+        rs_str = json.dumps(self._queue_buffer, cls=self._jsonEncoder, default=str)
         post_url = self._get_base_url() + path
         logging.debug("%s: about to post %d bytes to %s" % (datetime.now(), len(rs_str), post_url))
 
@@ -135,21 +152,33 @@ class DataCulpaValidator:
                             data=rs_str, 
                             headers=self._json_headers(),
                             timeout=10.0) # 10 second timeout.
+            self._queue_buffer = []
         except:
             logging.info("Probably got a time out...") # maybe set an error/increment an error counter/etc.
-            return None, 0, 0
-        print("%s: done with post" % (datetime.now(),))
+            #return None, 0, 0
+#            print("%s: done with post" % (datetime.now(),))
 
         try:
             jr = json.loads(r.content)
-            return jr.get('queue_id'), jr.get('queue_count'), jr.get('queue_age')
+            self._queue_id = jr.get('queue_id')
+            #return jr.get('queue_id'), jr.get('queue_count'), jr.get('queue_age')
+            # FIXME: improve error handling.
         except:
             logging.debug("Error parsing result: __%s__", r.content)
 
-        # failed to parse I suppose.
-        return (None, 0, 0)
+        return # (None, 0, 0)
 
-    def queue_commit(self, queue_id):
+    def queue_commit(self):
+        if self._queue_id is None and len(self._queue_buffer) == 0:
+            self._append_error("queue_commit called but no data sent or queued to send")
+            return
+        
+        if len(self._queue_buffer) != 0:
+            self._flush_queue()
+        
+        queue_id = self._queue_id
+        assert queue_id is not None
+
         path = "queue/commit/%s" % queue_id
         url = self._get_base_url() + path
         r = requests.post(url=url, 
@@ -159,8 +188,19 @@ class DataCulpaValidator:
             jr = json.loads(r.content)
             return jr
         except:
-            logging.error("Error parsing result: __%s__", r.content)
+            self._append_error("Error parsing result: __%s__" % r.content)
+
+        self._queue_id = None
         return None
+
+    def get_queue_id(self):
+        return self._queue_id
+
+    def force_flush_if_needed_and_get_queue_id(self):
+        if self._queue_id is None:
+            if len(self._queue_buffer) > 0:
+                self._flush_queue()
+        return self._queue_id
 
     def validation_status(self, queue_id):
         path = "validation/status/%s" % queue_id
