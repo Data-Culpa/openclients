@@ -169,6 +169,9 @@ class DataCulpaValidator:
         return # (None, 0, 0)
 
     def queue_commit(self):
+        """Returns the queue_id if successful -- so that we can query for validation status on that queue_id.
+           By the time this returns, the queue has been closed--so the only utility is to query for validation status
+        """
         if self._queue_id is None and len(self._queue_buffer) == 0:
             self._append_error("queue_commit called but no data sent or queued to send")
             return
@@ -179,6 +182,8 @@ class DataCulpaValidator:
         queue_id = self._queue_id
         assert queue_id is not None
 
+        self._queue_id = None
+
         path = "queue/commit/%s" % queue_id
         url = self._get_base_url() + path
         r = requests.post(url=url, 
@@ -186,21 +191,21 @@ class DataCulpaValidator:
                           headers=self._json_headers())
         try:
             jr = json.loads(r.content)
-            return jr
+            return (queue_id, jr)
         except:
             self._append_error("Error parsing result: __%s__" % r.content)
 
         self._queue_id = None
-        return None
+        return (queue_id, None)
 
     def get_queue_id(self):
         return self._queue_id
 
-    def force_flush_if_needed_and_get_queue_id(self):
-        if self._queue_id is None:
-            if len(self._queue_buffer) > 0:
-                self._flush_queue()
-        return self._queue_id
+    #def force_flush_if_needed_and_get_queue_id(self):
+    #    if self._queue_id is None:
+    #        if len(self._queue_buffer) > 0:
+    #            self._flush_queue()
+    #    return self._queue_id
 
     def validation_status(self, queue_id):
         path = "validation/status/%s" % queue_id
