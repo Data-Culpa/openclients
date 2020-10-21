@@ -1,10 +1,8 @@
 # Data Culpa Validator Getting Started
 
-Welcome to Data Culpa Validator, a data quality monitoring solution for all your data pipelines. You can use Data Culpa Validator to ensure the proper long-running operation of data pipelines, whether those pipelines are supporting AI analysis, BI reporting, ETL operations, or some other data-intensive process. Validator captures inputs from upstream, from data pipeline output, and from specific values used in the pipeline's operation. Validator automatically raises alerts when it detects anomalies that could jeopardize results. Validator makes it easy for you to compare operations from present to past and to visualize changes in operations over time across a variety of dimensions: runtime throughput, schema changes, and even type and value changes within fields.
+Welcome to Data Culpa Validator, a data quality monitoring solution for all your data pipelines. You can use Data Culpa Validator to ensure the proper long-running operation of data pipelines, whether those pipelines are supporting AI analysis, BI reporting, ETL and ELT operations, or some other data-intensive process. Validator captures inputs from upstream, from data pipeline output, and from specific values used in the pipeline's operation. Validator automatically raises alerts when it detects anomalies that could jeopardize results. Validator makes it easy for you to compare operations from present to past and to visualize changes in operations over time across a variety of dimensions: runtime throughput, schema changes, and even type and value changes within fields.
  
 Data Culpa Validator is built for flexible operations and scale. You can push data from your pipeline into Validator asynchronously for high-throughput operation and post facto analysis, or you can call Validator in synchronous mode to capture and react to problematic data before operations continue.
-
-
 
 
 ## Operation Overview 
@@ -91,6 +89,23 @@ Commits the contents of the queue, erases the queue, and returns a validation re
 
 Note that only one queue may be operational at a time for a given pipeline name + stage + environment combination; calling `queue_record()` will append to an existing queue.
 
+### Batch Data
+
+Validator supports batch data and streaming processing for sending large CSV files (for example).  In the client library, this is implement with the `load_csv_file()` call, which takes a path to a CSV file.
+
+The `load_flat_array()` call can be used to load 2D arrays, whether they are Python native, pandas, or numpy arrays. In the current implementation, these are encoded as JSON and passed to the Validator service.
+
+### Pipeline Configuration
+
+You can configure alerts for pipeline data with a YAML file.
+
+    import yaml
+    config = yaml.load(file, yaml.SafeLoader)
+
+    dc.configure_pipeline(pipeline_name, config=config)
+
+Any client with permissions to edit the pipeline can load a new YAML file; the configuration only needs to be applied once. The configuration is viewable in the Validator UI.
+
 ### Logging into the Validator UI
 
 To view the operations of your pipeline, login to the Validator UI.  You can see the status of your Validator installation by running the command:
@@ -101,7 +116,6 @@ The dcsh program is an interaction shell that simplifies management of the Valid
 
 The --status command will print out the running services and such:
 
-	
     $ dcsh --status
     Data Culpa Validator is running.
     UI: http://localhost:7777/
@@ -112,11 +126,20 @@ Open the UI via a web browser. Validator uses Okta for authentication, even with
 
 In the UI, navigate to _Manager > API Users_ to set up new data pipeline users and generate access tokens that you can integrate into your secrets manager. We recommend creating a unique user for each pipeline.
 
+
+### Pipeline Metadata
+
+Validator pipeline interactions include an ability for your pipeline code to augment the data sent to Validator with metadata that may be useful for your analysis. You may wish to include source control revision information, runtime environment information, or other application-specific data.
+
+For database and file tree monitoring, Validator includes "example pipelines" that include information about the database system and file system tree.
+
 ### Pipeline Dashboards
 
 The pipeline dashboards page provides a high level view of pipeline activity within your Validator instance. The main graph shows the number of records processed and when, going back 14 days. Initially the graph will be sparse until you have some running history with Validator.
 
 "You don’t have any pipelines yet; learn how to set one up now!"
+
+By default, Validator auto-registers a new pipeline when a client connects with information about that pipeline. 
 
 ### Drilling into a Specific Pipeline
 

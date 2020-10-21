@@ -26,6 +26,7 @@
 import json
 import requests
 import logging
+import traceback
 
 from datetime import datetime
 
@@ -43,6 +44,11 @@ def show_versions():
     # see sklearn.show_versions() for inspiration
     logging.error("Need to implement show_version!")
     return    
+
+class PipelineAlertConfig:
+    def __init__(self):
+        pass
+
 
 class DataCulpaValidator:
     HTTP = "http"
@@ -124,6 +130,46 @@ class DataCulpaValidator:
     def _json_headers(self):
         headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
         return headers
+
+    def _csv_batch_headers(self):
+        headers = {'Content-type': 'text/csv', 
+                   'Accept': 'text/plain',
+                   'X-agent': 'dataculpa-library',
+                   'X-data-type': 'csv'
+                   }
+        return headers
+
+    def load_csv_file(self, file_name):
+        """
+        Send the raw file contents to Validator and commit the queue.
+        """
+        suffix = self._build_pipeline_url_suffix()   
+        path = "batch-validate/" + suffix
+        post_url = self._get_base_url() + path
+
+        try:
+            with open(file_name, "rb") as csv_file:
+                r = requests.post(url=post_url, 
+                                files={file_name: csv_file}, 
+                                headers=self._csv_batch_headers(),
+                                timeout=10.0) # 10 second timeout.
+            self._queue_buffer = []
+        except:
+            traceback.print_exc()
+            logging.info("Probably got a time out... this needs a lot of work") # maybe set an error/increment an error counter/etc.
+
+        return
+
+    def load_flat_array(self, a):
+        """
+        Batch load the array of data, e.g., data read in from a csv.reader() call.
+
+        Note that this doesn't support hierarchical data; for that use queue_record calls.
+        """
+        print("load_array() NOT IMPLEMENTED")
+
+        return
+
 
     def queue_record(self,
                     record,
