@@ -24,6 +24,7 @@
 #
 
 import json
+import os
 import requests
 import logging
 import traceback
@@ -147,18 +148,36 @@ class DataCulpaValidator:
         path = "batch-validate/" + suffix
         post_url = self._get_base_url() + path
 
+        timeout = 10
+        # if the file is big, allow more time... need something smarter here.
+        file_sz = os.stat(file_name).st_size
+        if file_sz > (1024 * 1024 * 1024):
+            timeout = 60
+        elif file_sz > (1024 * 1024):
+            timeout = 30
+        # endif
+
         try:
             with open(file_name, "rb") as csv_file:
                 r = requests.post(url=post_url, 
                                 files={file_name: csv_file}, 
                                 headers=self._csv_batch_headers(),
-                                timeout=10.0) # 10 second timeout.
+                                timeout=timeout) # 10 second timeout.
+                #r.raise_for_status() # turn HTTP errors into exceptions -- 
             self._queue_buffer = []
-        except:
-            traceback.print_exc()
-            logging.info("Probably got a time out... this needs a lot of work") # maybe set an error/increment an error counter/etc.
 
-        return
+            return True # worked.
+        except requests.exceptions.Timeout:
+            logging.error("timed out trying to load csv file...")
+#        except requests.exceptions.RetryError:
+        except requests.RequestException as e:
+            logging.error("got an request error... server down?: %s" % e)
+        except requests.exceptions.HTTPErrror as err:
+            logging.error("got an http error: %s" % err)
+        except:
+            logging.error("got some other error:")
+ 
+        return False # got an error.
 
     def load_flat_array(self, a):
         """
