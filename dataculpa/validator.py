@@ -23,6 +23,7 @@
 # DEALINGS IN THE SOFTWARE.
 #
 
+import base64
 import json
 import os
 import requests
@@ -70,10 +71,10 @@ class DataCulpaValidator:
 
         assert isinstance(pipeline_name, str), "pipeline_name must be a string"
 
-        self.pipeline_name = pipeline_name
+        self.pipeline_name        = pipeline_name
         self.pipeline_environment = pipeline_environment
-        self.pipeline_stage = pipeline_stage
-        self.pipeline_version = pipeline_version
+        self.pipeline_stage       = pipeline_stage
+        self.pipeline_version     = pipeline_version
 
         self.protocol = protocol
         #if self.protocol == self.HTTP:
@@ -120,23 +121,27 @@ class DataCulpaValidator:
     def _get_base_url(self):
         return "%s://%s:%s/" % (self.protocol, self.host, self.port)
 
+    def _whack_str(self, s):
+        return base64.urlsafe_b64encode(s.encode('utf-8')).decode('utf-8')
+
     def _build_pipeline_url_suffix(self):
-        # FIXME: need to base64 encode this stuff.
-        s = "%s/%s/%s/%s" % (self.pipeline_name, 
-                             self.pipeline_environment, 
-                             self.pipeline_stage, 
-                             self.pipeline_version)
+        s = "%s/%s/%s/%s" % (self._whack_str(self.pipeline_name), 
+                             self._whack_str(self.pipeline_environment), 
+                             self._whack_str(self.pipeline_stage), 
+                             self._whack_str(self.pipeline_version))
         return s
 
     def _json_headers(self):
-        headers = {'Content-type': 'application/json', 'Accept': 'text/plain'}
+        headers = {'Content-type': 'application/json',
+                   'Accept': 'text/plain'}
         return headers
 
-    def _csv_batch_headers(self):
+    def _csv_batch_headers(self, file_name):
         headers = {'Content-type': 'text/csv', 
                    'Accept': 'text/plain',
                    'X-agent': 'dataculpa-library',
-                   'X-data-type': 'csv'
+                   'X-data-type': 'csv',
+                   'X-batch-name': base64.urlsafe_b64encode(file_name.encode('utf-8'))
                    }
         return headers
 
@@ -161,7 +166,7 @@ class DataCulpaValidator:
             with open(file_name, "rb") as csv_file:
                 r = requests.post(url=post_url, 
                                 files={file_name: csv_file}, 
-                                headers=self._csv_batch_headers(),
+                                headers=self._csv_batch_headers(file_name),
                                 timeout=timeout) # 10 second timeout.
                 #r.raise_for_status() # turn HTTP errors into exceptions -- 
             self._queue_buffer = []
