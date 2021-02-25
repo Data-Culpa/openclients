@@ -133,7 +133,9 @@ class DataCulpaValidator:
 
     def _json_headers(self):
         headers = {'Content-type': 'application/json',
-                   'Accept': 'text/plain'}
+                   'Accept': 'text/plain',
+                   
+                   }
         return headers
 
     def _csv_batch_headers(self, file_name):
@@ -219,12 +221,15 @@ class DataCulpaValidator:
 
         try:
             r = requests.post(url=post_url, 
-                            data=rs_str, 
-                            headers=self._json_headers(),
-                            timeout=10.0) # 10 second timeout.
+                              data=rs_str, 
+                              headers=self._json_headers(),
+                              timeout=10.0) # 10 second timeout.
             self._queue_buffer = []
         except:
-            logging.info("Probably got a time out...") # maybe set an error/increment an error counter/etc.
+            # FIXME: need to handle ConnectionRefusedError and so on!
+            logging.info("Probably got a time out...") 
+            traceback.print_exc()
+            # maybe set an error/increment an error counter/etc.
             #return None, 0, 0
 #            print("%s: done with post" % (datetime.now(),))
 
