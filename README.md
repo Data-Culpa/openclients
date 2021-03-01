@@ -7,7 +7,7 @@ Data Culpa Validator is built for flexible operations and scale. You can push da
 
 ## Operation Overview 
  
-Data Culpa Validator is distributed as an Ubuntu package that contains both the user interface and data processing code. Validator uses a Mongo database for its private cache of values.
+Data Culpa Validator is distributed as a Docker container that includes both the user interface and data processing code. Validator uses an internal database for its private cache of values.
  
 Validator includes an open source python client library that enables JSON-formatted HTTP REST calls to the Validator processing server. We expect to provide other IPC mechanisms in later releases (such as message queues), and we welcome feedback from customers about other transports to support.
  
@@ -45,9 +45,7 @@ When monitoring data quality, it can be useful to know the approximate run time 
 
 ### Validation Result
 
-Pushing a batch of records into Validator currently provides a strong hint of a data window to process. The processing of the data's consistency is compared to recently observed data; we may adjust windowing and history comparison windows, or offer them as parameters, based on customer feedback.
-
-Calling `validate_sync` or `validate_update(..., is_finished=True)` will kick off consistency processing on the data set and return a structure with the following members:
+Validation results can be provided back to the pipeline by checking `validation_status(queue_id, wait_for_processing=True)` after commiting the queue (or sending a batch of data). Getting the results inline means that your pipeline can decide whether to proceed or push errors into other streams. You can also pass identifiers to some other process to check/monitor for results in your own watchdog system.
 
 | Field Name | Type | Value Range | Description|
 |------------|------|-------------|------------|
