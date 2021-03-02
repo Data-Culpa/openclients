@@ -245,7 +245,7 @@ class DataCulpaValidator:
             # FIXME: improve error handling.
             return self._queue_id
         except:
-            logging.debug("Error parsing result: __%s__", r.content)
+            logging.debug("Error parsing result: __%s__" % r.content)
 
         logging.warn("queue alloc failed")
         return None # (None, 0, 0)
