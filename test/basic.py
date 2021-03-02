@@ -35,9 +35,10 @@ import json
 
 def main():
 
-    dc = DataCulpaValidator(DataCulpaValidator.HTTP,
-                            "192.168.1.13", 
-                            7777)
+    dc = DataCulpaValidator("dc-unit-test-pipeline",
+                            protocol=DataCulpaValidator.HTTP,
+                            dc_host="192.168.1.13", 
+                            dc_port=7777)
 
     # dc.test_connection()
 
@@ -46,7 +47,10 @@ def main():
           'run_time': str(datetime.now()),
           'random_value': random.random() }
 
-    dc.validate_blocking([d], "test-pipeline")
+    dc.queue_record(d)
+
+    dc.queue_metadata(None, { 'meta_field': 'meta_value, wow'} )
+    dc.queue_commit()
     return
 
 if __name__ == "__main__":

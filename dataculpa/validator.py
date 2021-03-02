@@ -177,10 +177,10 @@ class DataCulpaValidator:
         except requests.exceptions.Timeout:
             logging.error("timed out trying to load csv file...")
 #        except requests.exceptions.RetryError:
+        except requests.exceptions.HTTPError as err:
+            logging.error("got an http error: %s" % err)
         except requests.RequestException as e:
             logging.error("got an request error... server down?: %s" % e)
-        except requests.exceptions.HTTPErrror as err:
-            logging.error("got an http error: %s" % err)
         except:
             logging.error("got some other error:")
  
@@ -196,6 +196,60 @@ class DataCulpaValidator:
 
         return
 
+    def queue_metadata(self, queue_id, meta):
+        # FIXME: maybe consider queuing locally and then flushing when the user calls commit()?
+        # 
+        assert isinstance(meta, dict), "meta must be a dict"
+        #assert queue_id is not None, "missing queue id"
+        if queue_id is None:
+            queue_id = self._queue_alloc()
+
+        path = "queue/metadata/%s" % queue_id
+        url = self._get_base_url() + path
+        r = requests.post(url=url, 
+                          data="", 
+                          headers=self._json_headers())
+        try:
+            jr = json.loads(r.content)
+            return (queue_id, jr)
+        except:
+            self._append_error("Error parsing result: __%s__" % r.content)
+
+        return
+
+    def _queue_alloc(self):
+        """Returns a queue_id"""
+        suffix = self._build_pipeline_url_suffix()   
+        path = "queue/alloc/" + suffix
+
+        post_url = self._get_base_url() + path
+        logging.debug("%s: about to alloc queue" % (datetime.now(),))
+
+        try:
+            r = requests.post(url=post_url, 
+                              data="", 
+                              headers=self._json_headers(),
+                              timeout=10.0) # 10 second timeout.
+        except:
+            # FIXME: need to handle ConnectionRefusedError and so on!
+            logging.info("Probably got a time out...") 
+            traceback.print_exc()
+        # endtry
+
+        try:
+            jr = json.loads(r.content)
+            self._queue_id = jr.get('queue_id')
+            #return jr.get('queue_id'), jr.get('queue_count'), jr.get('queue_age')
+            # FIXME: improve error handling.
+            return self._queue_id
+        except:
+            logging.debug("Error parsing result: __%s__", r.content)
+
+        logging.warn("queue alloc failed")
+        return None # (None, 0, 0)
+
+  
+
 
     def queue_record(self,
                     record,
@@ -207,7 +261,7 @@ class DataCulpaValidator:
             return self._flush_queue()
         return None, 0, 0
     
-    def _append_error(message):
+    def _append_error(self, message):
         self._queue_errors.append( { 'when': datetime.utcnow(), 'message': message })
         return
 
@@ -282,7 +336,7 @@ class DataCulpaValidator:
     #            self._flush_queue()
     #    return self._queue_id
 
-    def validation_status(self, queue_id):
+    def validation_status(self, queue_id, wait_for_processing=False):
         path = "validation/status/%s" % queue_id
         url = self._get_base_url() + path
         r = requests.get(url=url, headers=self._json_headers())

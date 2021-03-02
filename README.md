@@ -87,6 +87,11 @@ Commits the contents of the queue, erases the queue, and returns a validation re
 
 Note that only one queue may be operational at a time for a given pipeline name + stage + environment combination; calling `queue_record()` will append to an existing queue.
 
+
+### Arbitrary Metadata
+
+From a diagnostics perspective, your pipeline may want to include additional metadata with the queued data. For example, you might want to tie parameters, or number of records, error codes, or whatever with the queued data for viewing in Data Culpa later. You can include arbitrary metadata with the queue by calling `queue_metadata(queue_id, meta)` where meta is a dictionary of JSON-encodeable objects (strings, etc). We generally recommend keeping this fairly flat unless you have a strong need for some kind of hierarchy in retrieving this later.
+
 ### Batch Data
 
 Validator supports batch data and streaming processing for sending large CSV files (for example).  In the client library, this is implement with the `load_csv_file()` call, which takes a path to a CSV file.
