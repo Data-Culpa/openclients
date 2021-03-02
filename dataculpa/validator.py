@@ -200,14 +200,16 @@ class DataCulpaValidator:
         # FIXME: maybe consider queuing locally and then flushing when the user calls commit()?
         # 
         assert isinstance(meta, dict), "meta must be a dict"
-        #assert queue_id is not None, "missing queue id"
+        
         if queue_id is None:
             queue_id = self._queue_alloc()
 
         path = "queue/metadata/%s" % queue_id
         url = self._get_base_url() + path
+
+        rs_str = json.dumps(meta, cls=json.JSONEncoder, default=str)
         r = requests.post(url=url, 
-                          data="", 
+                          data=rs_str, 
                           headers=self._json_headers())
         try:
             jr = json.loads(r.content)
