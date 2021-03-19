@@ -267,13 +267,18 @@ class DataCulpaValidator:
         self._queue_errors.append( { 'when': datetime.utcnow(), 'message': message })
         return
 
-    def _flush_queue(self):
-        suffix = self._build_pipeline_url_suffix()   
-        path = "queue/enqueue/" + suffix
+    def _open_queue(self):
+        j = { 
+                'pipeline': self._whack_str(self.pipeline_name),
+                'context ': self._whack_str(self.pipeline_environment),
+                'stage'   : self._whack_str(self.pipeline_stage),
+                'version' : self._whack_str(self.pipeline_version),
+        }
 
-        rs_str = json.dumps(self._queue_buffer, cls=self._jsonEncoder, default=str)
-        post_url = self._get_base_url() + path
-        logging.debug("%s: about to post %d bytes to %s" % (datetime.now(), len(rs_str), post_url))
+        rs_str = json.dumps(j, cls=self._jsonEncoder, default=str)
+        post_url = self._get_base_url() + "queue/open"
+
+        r = None
 
         try:
             r = requests.post(url=post_url, 
@@ -285,17 +290,49 @@ class DataCulpaValidator:
             # FIXME: need to handle ConnectionRefusedError and so on!
             logging.info("Probably got a time out...") 
             traceback.print_exc()
-            # maybe set an error/increment an error counter/etc.
-            #return None, 0, 0
-#            print("%s: done with post" % (datetime.now(),))
+            return
+
+        if r is not None:
+            try:
+                jr = json.loads(r.content)
+                self._queue_id = jr.get('queue_id')
+                print("queue_id = ", self._queue_id)
+            except:
+                logging.debug("Error parsing result: __%s__", r.content)
+
+        return # (None, 0, 0)
+
+    def _flush_queue(self):
+        if self._queue_id is None:
+            self._open_queue()
+            assert self._queue_id is not None, "unable to open a queue"
+        path = "queue/enqueue/%s" % self._queue_id
+
+        rs_str = json.dumps(self._queue_buffer, cls=self._jsonEncoder, default=str)
+        post_url = self._get_base_url() + path
+        #logging.debug("%s: about to post %d bytes to %s" % (datetime.now(), len(rs_str), post_url))
+
+        r = None
 
         try:
-            jr = json.loads(r.content)
-            self._queue_id = jr.get('queue_id')
-            #return jr.get('queue_id'), jr.get('queue_count'), jr.get('queue_age')
-            # FIXME: improve error handling.
+            r = requests.post(url=post_url, 
+                              data=rs_str, 
+                              headers=self._json_headers(),
+                              timeout=10.0) # 10 second timeout.
+            self._queue_buffer = []
         except:
-            logging.debug("Error parsing result: __%s__", r.content)
+            # FIXME: need to handle ConnectionRefusedError and so on!
+            logging.info("Probably got a time out...") 
+            traceback.print_exc()
+
+        if r is not None:
+            try:
+                jr = json.loads(r.content)
+                #self._queue_id = jr.get('queue_id')
+                #return jr.get('queue_id'), jr.get('queue_count'), jr.get('queue_age')
+                # FIXME: improve error handling.
+            except:
+                logging.debug("Error parsing result: __%s__", r.content)
 
         return # (None, 0, 0)
 
@@ -331,12 +368,6 @@ class DataCulpaValidator:
 
     def get_queue_id(self):
         return self._queue_id
-
-    #def force_flush_if_needed_and_get_queue_id(self):
-    #    if self._queue_id is None:
-    #        if len(self._queue_buffer) > 0:
-    #            self._flush_queue()
-    #    return self._queue_id
 
     def validation_status(self, queue_id, wait_for_processing=False):
         path = "validation/status/%s" % queue_id
