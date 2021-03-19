@@ -125,10 +125,10 @@ class DataCulpaValidator:
         return base64.urlsafe_b64encode(s.encode('utf-8')).decode('utf-8')
 
     def _build_pipeline_url_suffix(self):
-        s = "%s/%s/%s/%s" % (self._whack_str(self.pipeline_name), 
-                             self._whack_str(self.pipeline_environment), 
-                             self._whack_str(self.pipeline_stage), 
-                             self._whack_str(self.pipeline_version))
+        s = "%s/%s/%s/%s" % ((self.pipeline_name), 
+                             (self.pipeline_environment), 
+                             (self.pipeline_stage), 
+                             (self.pipeline_version))
         return s
 
     def _json_headers(self):
