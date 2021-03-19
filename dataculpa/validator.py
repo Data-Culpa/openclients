@@ -202,7 +202,9 @@ class DataCulpaValidator:
         assert isinstance(meta, dict), "meta must be a dict"
         
         if queue_id is None:
-            queue_id = self._queue_alloc()
+            self._open_queue()
+            if self._queue_id is not None:
+                queue_id = self._queue_id
 
         path = "queue/metadata/%s" % queue_id
         url = self._get_base_url() + path
@@ -218,40 +220,6 @@ class DataCulpaValidator:
             self._append_error("Error parsing result: __%s__" % r.content)
 
         return
-
-    def _queue_alloc(self):
-        """Returns a queue_id"""
-        suffix = self._build_pipeline_url_suffix()   
-        path = "queue/alloc/" + suffix
-
-        post_url = self._get_base_url() + path
-        logging.debug("%s: about to alloc queue" % (datetime.now(),))
-
-        try:
-            r = requests.post(url=post_url, 
-                              data="", 
-                              headers=self._json_headers(),
-                              timeout=10.0) # 10 second timeout.
-        except:
-            # FIXME: need to handle ConnectionRefusedError and so on!
-            logging.info("Probably got a time out...") 
-            traceback.print_exc()
-        # endtry
-
-        try:
-            jr = json.loads(r.content)
-            self._queue_id = jr.get('queue_id')
-            #return jr.get('queue_id'), jr.get('queue_count'), jr.get('queue_age')
-            # FIXME: improve error handling.
-            return self._queue_id
-        except:
-            logging.debug("Error parsing result: __%s__" % r.content)
-
-        logging.warn("queue alloc failed")
-        return None # (None, 0, 0)
-
-  
-
 
     def queue_record(self,
                     record,
@@ -275,7 +243,7 @@ class DataCulpaValidator:
                 'version' : self._whack_str(self.pipeline_version),
         }
 
-        rs_str = json.dumps(j, cls=self._jsonEncoder, default=str)
+        rs_str = json.dumps(j, cls=json.JSONEncoder, default=str)
         post_url = self._get_base_url() + "queue/open"
 
         r = None
