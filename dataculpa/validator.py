@@ -93,6 +93,8 @@ class DataCulpaValidator:
         self._queue_id = None
         self._queue_count = 0
 
+        self._open_queue()
+
 
     def __del__(self):
         logging.debug("DataCulpaValidator destructor called")
@@ -125,10 +127,10 @@ class DataCulpaValidator:
         return base64.urlsafe_b64encode(s.encode('utf-8')).decode('utf-8')
 
     def _build_pipeline_url_suffix(self):
-        s = "%s/%s/%s/%s" % ((self.pipeline_name), 
-                             (self.pipeline_environment), 
-                             (self.pipeline_stage), 
-                             (self.pipeline_version))
+        s = "%s/%s/%s/%s" % (self._whack_str(self.pipeline_name), 
+                             self._whack_str(self.pipeline_environment), 
+                             self._whack_str(self.pipeline_stage), 
+                             self._whack_str(self.pipeline_version))
         return s
 
     def _json_headers(self):
@@ -196,7 +198,7 @@ class DataCulpaValidator:
 
         return
 
-    def queue_metadata(self, queue_id, meta):
+    def queue_metadata(self, meta):
         # FIXME: maybe consider queuing locally and then flushing when the user calls commit()?
         # 
         assert isinstance(meta, dict), "meta must be a dict"
@@ -237,10 +239,10 @@ class DataCulpaValidator:
 
     def _open_queue(self):
         j = { 
-                'pipeline': self._whack_str(self.pipeline_name),
-                'context ': self._whack_str(self.pipeline_environment),
-                'stage'   : self._whack_str(self.pipeline_stage),
-                'version' : self._whack_str(self.pipeline_version),
+                'pipeline': self.pipeline_name,
+                'context ': self.pipeline_environment,
+                'stage'   : self.pipeline_stage,
+                'version' : self.pipeline_version,
         }
 
         rs_str = json.dumps(j, cls=json.JSONEncoder, default=str)
@@ -308,13 +310,14 @@ class DataCulpaValidator:
         """Returns the queue_id if successful -- so that we can query for validation status on that queue_id.
            By the time this returns, the queue has been closed--so the only utility is to query for validation status
         """
-        if self._queue_id is None and len(self._queue_buffer) == 0:
-            self._append_error("queue_commit called but no data sent or queued to send")
-            return
+        #if self._queue_id is None and len(self._queue_buffer) == 0:
+        #    self._append_error("queue_commit called but no data sent or queued to send")
+        #    return (None, None)
         
         if len(self._queue_buffer) != 0:
             self._flush_queue()
-        
+        # endif
+
         queue_id = self._queue_id
         assert queue_id is not None
 
