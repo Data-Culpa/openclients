@@ -1,0 +1,9 @@
+README.md
+pyproject.toml
+setup.cfg
+src/dataculpa/__init__.py
+src/dataculpa/validator.py
+src/dataculpa_client.egg-info/PKG-INFO
+src/dataculpa_client.egg-info/SOURCES.txt
+src/dataculpa_client.egg-info/dependency_links.txt
+src/dataculpa_client.egg-info/top_level.txt
