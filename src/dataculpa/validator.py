@@ -67,7 +67,8 @@ class DataCulpaValidator:
                  dc_port=7777, 
                  api_access_id=None, 
                  api_secret=None,
-                 queue_window=20):
+                 queue_window=20,
+                 timeshift=None):
 
         assert isinstance(pipeline_name, str), "pipeline_name must be a string"
 
@@ -92,6 +93,8 @@ class DataCulpaValidator:
         self._queue_errors = []
         self._queue_id = None
         self._queue_count = 0
+
+        self._timeshift = timeshift
 
         self._open_queue()
 
@@ -237,12 +240,40 @@ class DataCulpaValidator:
         self._queue_errors.append( { 'when': datetime.utcnow(), 'message': message })
         return
 
+    def _calc_timeshift_seconds(self):
+        ts = self._timeshift
+        if ts is None:
+            return 0
+        
+        # if it's an int, pass that
+        if type(ts) == int:
+            return ts
+
+        # if it's a datetime, calculate the delta to now in seconds.
+        if isinstance(ts, datetime):
+            # if we got in a timezone, use it... otherwise assume local timezone.
+            now = None
+            if ts.tzinfo is not None:
+                now = datetime.now(ts.tzinfo)
+            else:
+                now = datetime.now()
+            # endif
+            
+            dt = now - ts
+            if dt is not None:
+                dt = int(dt.total_seconds())
+                return dt
+                
+        return 0
+
+
     def _open_queue(self):
         j = { 
-                'pipeline': self.pipeline_name,
-                'context ': self.pipeline_environment,
-                'stage'   : self.pipeline_stage,
-                'version' : self.pipeline_version,
+                'pipeline' : self.pipeline_name,
+                'context ' : self.pipeline_environment,
+                'stage'    : self.pipeline_stage,
+                'version'  : self.pipeline_version,
+                'timeshift': self._calc_timeshift_seconds()
         }
 
         rs_str = json.dumps(j, cls=json.JSONEncoder, default=str)
