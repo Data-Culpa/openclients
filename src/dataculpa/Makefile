@@ -22,24 +22,6 @@
 # DEALINGS IN THE SOFTWARE.
 #
 
-
-.PHONY: pypi
-pypi:
-	$(MAKE) -C src/dataculpa
-	@echo "**** Building python package..."
-	python3 -m build
-	@echo
-	@echo "**** Use 'make upload' to push to PyPI"
-
-.PHONY: clean
-clean:
-	@echo "**** Cleaning up..."
-	$(RM) -rf dist
-	$(RM) -rf build
-	$(RM) -rf src/dataculpa/__pycache__
-
-
-.PHONY: upload
-upload:
-	@echo "**** Uploading... you'll need the secret in your keyring or enter it when prompted."
-	python3 -m twine upload dist/* --username __token__
+.PHONY: client
+client:
+	pylint3 -E validator.py

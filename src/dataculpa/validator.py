@@ -206,10 +206,11 @@ class DataCulpaValidator:
         # 
         assert isinstance(meta, dict), "meta must be a dict"
         
-        if queue_id is None:
-            self._open_queue()
-            if self._queue_id is not None:
-                queue_id = self._queue_id
+        queue_id = None
+        self._open_queue()
+        if self._queue_id is not None:
+            queue_id = self._queue_id
+        assert queue_id is not None, "open queue failed" # FIXME: handle this better.
 
         path = "queue/metadata/%s" % queue_id
         url = self._get_base_url() + path
@@ -263,7 +264,7 @@ class DataCulpaValidator:
             if dt is not None:
                 dt = int(dt.total_seconds())
                 return dt
-                
+
         return 0
 
 
