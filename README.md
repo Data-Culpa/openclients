@@ -9,9 +9,7 @@ Data Culpa Validator is built for flexible operations and scale. You can push da
  
 Data Culpa Validator is distributed as a Docker container that includes both the user interface and data processing code. Validator uses an internal database for its private cache of values.
  
-Validator includes an open source python client library that enables JSON-formatted HTTP REST calls to the Validator processing server. We expect to provide other IPC mechanisms in later releases (such as message queues), and we welcome feedback from customers about other transports to support.
- 
-Pipeline endpoints authenticate using an API key + token mechanism in Validator, which you can secure using your existing secrets infrastructure for your pipeline.
+Validator includes an open source python client library (`pip install dataculpa-client`) that enables JSON-formatted HTTP REST calls to the Validator processing server. We expect to provide other IPC mechanisms in later releases (such as message queues), and we welcome feedback from customers about other transports to support.
  
 Calling Validator from your pipeline is as simple as modifying the pipeline code to include the following:
  
@@ -23,12 +21,19 @@ Calling Validator from your pipeline is as simple as modifying the pipeline code
                     # if you want to send multiple data feeds to Validator,
                     # you can push those in via different pipeline_stage names
  
-          dc = DataCulpaValidator(DataCulpaValidator.HTTP, yourServerHost, yourServerPort)
-          dc.validator_async(pipeline_name, 
-                             pipeline_environment, 
-                             pipeline_stage, 
-                             data,
-                             extra_metadata)
+          dc = DataCulpaValidator(pipeline_name, 
+                                  pipeline_environment="default",
+                                  pipeline_stage="default",
+                                  pipeline_version="default",
+                                  protocol="http", 
+                                  dc_host="localhost", 
+                                  dc_port=7777, 
+                                  api_access_id=None, 
+                                  api_secret=None,
+                                  queue_window=20,
+                                  timeshift=None)
+          dc.queue_record(data)
+          dc.queue_commit()
           …
 
 The `pipeline_name`, `_environment`, `_stage`, and `_version` values are all strings of your choosing. You may wish to call Validator from both test and production environments, for example, or at multiple stages in pipeline processing, such as "ingest", "post_cleaning", "outputs." These top-level metadata fields help to organize your dashboards and visualizations when analyzing the results. 
@@ -45,23 +50,7 @@ When monitoring data quality, it can be useful to know the approximate run time 
 
 ### Validation Result
 
-Validation results can be provided back to the pipeline by checking `validation_status(queue_id, wait_for_processing=True)` after commiting the queue (or sending a batch of data). Getting the results inline means that your pipeline can decide whether to proceed or push errors into other streams. You can also pass identifiers to some other process to check/monitor for results in your own watchdog system.
-
-| Field Name | Type | Value Range | Description|
-|------------|------|-------------|------------|
-|input_record_format | string | json \| csv | the detected format of the data |
-|input_num_records   |  int | >= 0 | the number of records Validator processed/found |
-|schema_notes        | string array | null or list of values | a list of human-readable debugging notes about the input data's schema |
-|schema_similarity_list | float array | [0,1] | one per data item, indicating the similarity of each input data record's schema to recently observed schemas that have been sent to Validator. |
-|schema_confidence | float | [0,1] | the confidence Validator has in the object schema; this is the average of `schema_similarity_list` |
-|dupe_entries | int | >= 0 | the number of data records that were exact duplicates of previously-seen records. This is useful for identifying when an upstream data feed is sending stale records. |
-| dupe_warnings |string array | null or any | a list of human-readable debugging notes about any duplicates. |
-|record_value_confidence | float array | [0,1] | one per data item (row), indicating overall confidence in the values of the record |
-|record_value_notes | string array | null or a list | human-readable debugging notes |
-| field_value_confidence | dict<string, float> | floats are [0,1] | dictionary of fields (columns) and our confidence that the values are good across the records. |
-|processing_time | float | > 0.0 | wall-clock seconds that Validator took to process the record set |
-|internal_error | boolean | T/F | True if Validator had an internal error while processing the data. If this is set, please contact Data Culpa support at hello@dataculpa.com |
-|internal_error_notes | string array | null or a list | List of internal error descriptions
+An API view into the pipeline health is in the works, enabling you to decide programmatically whether to proceed operating a pipeline or raising an alert in some other system that you want to integrate with.
 
 ### Data Queueing
 
@@ -76,65 +65,32 @@ The usual `validate_*` calls assume a batch of data is ready to be processed. Th
                     extra_metadata)
     
 Returns the queue id, the number of items in the queue, and the age of the queue in seconds. The age value can be used to detect issues, such as an old queue that never got flushed with the `queue_commit()` call below
-     
-    dc.queue_interim_validate(queue_id) 
-    
-Returns a validation record of the items in the queue so far without commiting the queued data.
-		    
+     		    
     dc.queue_commit(queue_id) 
     
 Commits the contents of the queue, erases the queue, and returns a validation record.
 
 Note that only one queue may be operational at a time for a given pipeline name + stage + environment combination; calling `queue_record()` will append to an existing queue.
 
+### Pipeline and Arbitrary Metadata
 
-### Arbitrary Metadata
+Validator pipeline interactions include an ability for your pipeline code to augment the data sent to Validator with metadata that may be useful for your analysis. You may wish to include source control revision information, runtime environment information, or other application-specific data.
+
+For database and file tree monitoring, Validator includes "example pipelines" that include information about the database system and file system tree.
 
 From a diagnostics perspective, your pipeline may want to include additional metadata with the queued data. For example, you might want to tie parameters, or number of records, error codes, or whatever with the queued data for viewing in Data Culpa later. You can include arbitrary metadata with the queue by calling `queue_metadata(queue_id, meta)` where meta is a dictionary of JSON-encodeable objects (strings, etc). We generally recommend keeping this fairly flat unless you have a strong need for some kind of hierarchy in retrieving this later.
 
 ### Batch Data
 
-Validator supports batch data and streaming processing for sending large CSV files (for example).  In the client library, this is implement with the `load_csv_file()` call, which takes a path to a CSV file.
-
-The `load_flat_array()` call can be used to load 2D arrays, whether they are Python native, pandas, or numpy arrays. In the current implementation, these are encoded as JSON and passed to the Validator service.
+Validator supports batch data and streaming processing for sending large CSV files (for example).  In the client library, this is implement with the `load_csv_file()` call, which takes a path to a CSV file. You still still call `queue_commit()` after `load_csv_file()`.
 
 ### Pipeline Configuration
 
-You can configure alerts for pipeline data with a YAML file.
-
-    import yaml
-    config = yaml.load(file, yaml.SafeLoader)
-
-    dc.configure_pipeline(pipeline_name, config=config)
-
-Any client with permissions to edit the pipeline can load a new YAML file; the configuration only needs to be applied once. The configuration is viewable in the Validator UI.
-
-### Logging into the Validator UI
-
-To view the operations of your pipeline, login to the Validator UI.  You can see the status of your Validator installation by running the command:
-
-    $ dcsh --status
-
-The dcsh program is an interaction shell that simplifies management of the Validator software, letting you test the Mongo configuration, query for the status of the Validator services, and so on.
-
-The --status command will print out the running services and such:
-
-    $ dcsh --status
-    Data Culpa Validator is running.
-    UI: http://localhost:7777/
-
-Open the UI via a web browser. Validator uses Okta for authentication, even with your local installation. 
+Pipeline configuration currently happens in the UI, but YAML import/export will be supported and available in a future API.
 
 ### Create API Tokens for Pipeline Callers
 
 In the UI, navigate to _Manager > API Users_ to set up new data pipeline users and generate access tokens that you can integrate into your secrets manager. We recommend creating a unique user for each pipeline.
-
-
-### Pipeline Metadata
-
-Validator pipeline interactions include an ability for your pipeline code to augment the data sent to Validator with metadata that may be useful for your analysis. You may wish to include source control revision information, runtime environment information, or other application-specific data.
-
-For database and file tree monitoring, Validator includes "example pipelines" that include information about the database system and file system tree.
 
 ### Pipeline Dashboards
 

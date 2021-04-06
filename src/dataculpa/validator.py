@@ -156,8 +156,7 @@ class DataCulpaValidator:
         """
         Send the raw file contents to Validator and commit the queue.
         """
-        suffix = self._build_pipeline_url_suffix()   
-        path = "batch-validate/" + suffix
+        path = "batch-validate/" + str(self._queue_id)
         post_url = self._get_base_url() + path
 
         timeout = 10
