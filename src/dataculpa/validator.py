@@ -27,7 +27,7 @@ import base64
 import json
 import os
 import requests
-import logging
+import logging 
 import traceback
 
 from datetime import datetime
@@ -39,12 +39,22 @@ try:
 except:
     pass 
 
-logging.basicConfig(format='%(asctime)s %(message)s', level=logging.DEBUG)
+logger = logging.getLogger('dataculpa')
+#logger.basicConfig(format='%(asctime)s %(message)s', level=logger.DEBUG)
+
+def log_error(s):
+    return
+
+def log_info(s):
+    return
+
+def log_debug(s):
+    return
 
 def show_versions():
     # print out some version debug stuff... 
     # see sklearn.show_versions() for inspiration
-    logging.error("Need to implement show_version!")
+    logger.error("Need to implement show_version!")
     return    
 
 class PipelineAlertConfig:
@@ -100,7 +110,7 @@ class DataCulpaValidator:
 
 
     def __del__(self):
-        logging.debug("DataCulpaValidator destructor called")
+        logger.debug("DataCulpaValidator destructor called")
 
 
     def test_connection(self):
@@ -108,16 +118,16 @@ class DataCulpaValidator:
         r = requests.get(url=url,
                          headers=self._json_headers())
         if r.status_code != 200:
-            logging.error("got status code %s for %s" % (r.status_code, url))
+            logger.error("got status code %s for %s" % (r.status_code, url))
             return 1
 
         try:
             jr = json.loads(r.content)
             if jr.get('status') is None:
-                logging.error("missing status")
+                logger.error("missing status")
                 return 1
         except:
-            logging.error("Error parsing result: __%s__", r.content)
+            logger.error("Error parsing result: __%s__", r.content)
             return 1
 
         # FIXME: needs more error handling.
@@ -179,14 +189,14 @@ class DataCulpaValidator:
 
             return True # worked.
         except requests.exceptions.Timeout:
-            logging.error("timed out trying to load csv file...")
+            logger.error("timed out trying to load csv file...")
 #        except requests.exceptions.RetryError:
         except requests.exceptions.HTTPError as err:
-            logging.error("got an http error: %s" % err)
+            logger.error("got an http error: %s" % err)
         except requests.RequestException as e:
-            logging.error("got an request error... server down?: %s" % e)
+            logger.error("got an request error... server down?: %s" % e)
         except:
-            logging.error("got some other error:")
+            logger.error("got some other error:")
  
         return False # got an error.
 
@@ -239,6 +249,13 @@ class DataCulpaValidator:
     def _append_error(self, message):
         self._queue_errors.append( { 'when': datetime.utcnow(), 'message': message })
         return
+    
+    def has_errors(self):
+        # FIXME: we're very inconsistent on how we deal with errors right now.
+        return self._queue_errors != []
+    
+    def get_errors(self):
+        return self._queue_errors
 
     def _calc_timeshift_seconds(self):
         ts = self._timeshift
@@ -289,7 +306,7 @@ class DataCulpaValidator:
             self._queue_buffer = []
         except:
             # FIXME: need to handle ConnectionRefusedError and so on!
-            logging.info("Probably got a time out...") 
+            logger.info("Probably got a time out...") 
             traceback.print_exc()
             return
 
@@ -297,9 +314,8 @@ class DataCulpaValidator:
             try:
                 jr = json.loads(r.content)
                 self._queue_id = jr.get('queue_id')
-                print("queue_id = ", self._queue_id)
             except:
-                logging.debug("Error parsing result: __%s__", r.content)
+                logger.debug("Error parsing result: __%s__", r.content)
 
         return # (None, 0, 0)
 
@@ -311,7 +327,7 @@ class DataCulpaValidator:
 
         rs_str = json.dumps(self._queue_buffer, cls=self._jsonEncoder, default=str)
         post_url = self._get_base_url() + path
-        #logging.debug("%s: about to post %d bytes to %s" % (datetime.now(), len(rs_str), post_url))
+        #logger.debug("%s: about to post %d bytes to %s" % (datetime.now(), len(rs_str), post_url))
 
         r = None
 
@@ -323,7 +339,7 @@ class DataCulpaValidator:
             self._queue_buffer = []
         except:
             # FIXME: need to handle ConnectionRefusedError and so on!
-            logging.info("Probably got a time out...") 
+            logger.info("Probably got a time out...") 
             traceback.print_exc()
 
         if r is not None:
@@ -333,7 +349,7 @@ class DataCulpaValidator:
                 #return jr.get('queue_id'), jr.get('queue_count'), jr.get('queue_age')
                 # FIXME: improve error handling.
             except:
-                logging.debug("Error parsing result: __%s__", r.content)
+                logger.debug("Error parsing result: __%s__", r.content)
 
         return # (None, 0, 0)
 
@@ -382,5 +398,5 @@ class DataCulpaValidator:
             jr = json.loads(r.content)
             return jr
         except:
-            logging.error("Error parsing result: __%s__", r.content)
+            logger.error("Error parsing result: __%s__", r.content)
         return None
