@@ -108,6 +108,8 @@ class DataCulpaValidator:
 
         self._open_queue()
 
+        self._pipeline_id = None
+
 
     def __del__(self):
         logger.debug("DataCulpaValidator destructor called")
@@ -132,6 +134,69 @@ class DataCulpaValidator:
 
         # FIXME: needs more error handling.
         return 0
+
+    def _get_pipeline_id(self):
+        if self._pipeline_id is None:
+            pipe_id_request = self._get_base_url() + "data/metadata/pipeline-id/" + self._build_pipeline_url_suffix()
+            r = requests.get(url=pipe_id_request, headers=self._json_headers())
+            if r.status_code != 200:
+                raise Exception("unexpected result...status_code = ", r.status_code)
+
+            jr = None        
+            try:
+                jr = json.loads(r.content)
+                self._pipeline_id = jr.get('id')
+            except:
+                logger.error("Error parsing result: __%s__", r.content)
+
+        return self._pipeline_id
+
+
+    def get_config(self):
+        _id = self._get_pipeline_id()
+
+        if _id is not None:
+            # now we can get the config...
+            config_url = self._get_base_url() + "data/metadata/pipeline-config/" + str(_id)
+            r = requests.get(url=config_url, headers=self._json_headers())
+            if r.status_code != 200:
+                raise Exception("unexpected result... perhaps the pipeline isn't defined yet?")
+
+            jr = None        
+            try:
+                jr = json.loads(r.content)
+            except:
+                logger.error("Error parsing result: __%s__", r.content)
+
+            return jr
+
+        return None
+
+    def get_recent_batchnames(self):
+        _id = self._get_pipeline_id()
+
+        if _id is not None:
+            # now we can get the config...
+            config_url = self._get_base_url() + "data/recent_batch_names/" + str(_id)
+            r = requests.get(url=config_url, headers=self._json_headers())
+            if r.status_code != 200:
+                raise Exception("unexpected result... perhaps the pipeline isn't defined yet?")
+
+            jr = None        
+            try:
+                jr = json.loads(r.content)
+            except:
+                logger.error("Error parsing result: __%s__", r.content)
+
+            return jr
+
+        return None
+
+    def set_use_gold(self, batch_entry):
+        pass
+
+    # add a new call for setting the gold standard configuration item...but to what?
+    # we need the list of potential files we could use.
 
     def _get_base_url(self):
         return "%s://%s:%s/" % (self.protocol, self.host, self.port)
@@ -216,7 +281,9 @@ class DataCulpaValidator:
         assert isinstance(meta, dict), "meta must be a dict"
         
         queue_id = None
-        self._open_queue()
+        if self._queue_id is None:
+            self._open_queue()
+
         if self._queue_id is not None:
             queue_id = self._queue_id
         assert queue_id is not None, "open queue failed" # FIXME: handle this better.
@@ -263,7 +330,7 @@ class DataCulpaValidator:
             return 0
         
         # if it's an int, pass that
-        if type(ts) == int:
+        if type(ts) == int or type(ts) == float:
             return ts
 
         # if it's a datetime, calculate the delta to now in seconds.
