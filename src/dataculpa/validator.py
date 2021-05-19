@@ -260,8 +260,8 @@ class DataCulpaValidator:
             logger.error("got an http error: %s" % err)
         except requests.RequestException as e:
             logger.error("got an request error... server down?: %s" % e)
-        except:
-            logger.error("got some other error:")
+        except BaseException as e:
+            logger.error("got some other error: %s" % e)
  
         return False # got an error.
 
@@ -354,7 +354,7 @@ class DataCulpaValidator:
     def _open_queue(self):
         j = { 
                 'pipeline' : self.pipeline_name,
-                'context ' : self.pipeline_environment,
+                'context'  : self.pipeline_environment,
                 'stage'    : self.pipeline_stage,
                 'version'  : self.pipeline_version,
                 'timeshift': self._calc_timeshift_seconds()
