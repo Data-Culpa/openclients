@@ -146,6 +146,8 @@ class DataCulpaValidator:
             try:
                 jr = json.loads(r.content)
                 self._pipeline_id = jr.get('id')
+                print(pipe_id_request)
+                print(jr)
             except:
                 logger.error("Error parsing result: __%s__", r.content)
 
@@ -467,3 +469,50 @@ class DataCulpaValidator:
         except:
             logger.error("Error parsing result: __%s__", r.content)
         return None
+
+#    def debug_list_pipelines():
+#
+
+    def query_alerts(self):
+        # get alerts for this pipeline
+        pid = self._get_pipeline_id()
+        assert pid is not None, "FIXME: return an error"
+        _url = self._get_base_url() + "data/metadata/alerts/%s" % pid
+
+        r = requests.get(url=_url, headers=self._json_headers())
+        if r.status_code != 200:
+            raise Exception("unexpected result... perhaps the pipeline isn't defined yet?")
+        
+        jr = None        
+        try:
+            jr = json.loads(r.content)
+        except:
+            logger.error("Error parsing result: __%s__", r.content)
+
+        return jr
+
+
+    def query_get_raw_data(self):
+        # fetch the recent data for this pipeline, up to ~100 recent records.
+        # this is intended for verification of operations and may not perform well on large data sets.
+        return
+
+    def query_summary_data(self):
+        # get the summary for this pipeline
+        pid = self._get_pipeline_id()
+        assert pid is not None, "FIXME: return an error"
+
+        _url = self._get_base_url() + "data/aggr/%s" % pid
+        r = requests.get(url=_url, headers=self._json_headers())
+        if r.status_code != 200:
+            raise Exception("unexpected result... perhaps the pipeline id = %s isn't defined yet?" % pid)
+
+        jr = None        
+        try:
+            jr = json.loads(r.content)
+        except:
+            logger.error("Error parsing result: __%s__", r.content)
+
+        return jr
+
+    
