@@ -26,6 +26,7 @@
 .PHONY: pypi
 pypi:
 	$(MAKE) -C src/dataculpa
+	$(MAKE) -C test
 	@echo "**** Building python package..."
 	python3 -m build
 	@echo

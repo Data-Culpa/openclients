@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 #
 # basic.py
-# Data Culpa Open Clients
+# Data Culpa Validator Open Clients
 #
-# Copyright (c) 2020 Data Culpa, Inc.
+# Copyright (c) 2020-2021 Data Culpa, Inc.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to 
@@ -29,16 +29,16 @@ from dataculpa import DataCulpaValidator
 from datetime import datetime
 
 import random
-import socket
-
-import json
+import socket 
+import sys
+import time
 
 def main():
 
-    dc = DataCulpaValidator("dc-unit-test-pipeline",
+    dc = DataCulpaValidator("client-3",
                             protocol=DataCulpaValidator.HTTP,
-                            dc_host="192.168.1.13", 
-                            dc_port=7777)
+                            dc_host="192.168.1.65", 
+                            dc_port=7778)
 
     # dc.test_connection()
 
@@ -47,10 +47,26 @@ def main():
           'run_time': str(datetime.now()),
           'random_value': random.random() }
 
-    dc.queue_record(d)
+    # queue_metadata will open a queue if it is not open.
+    dc.queue_metadata({ 'meta_field': 'meta_value, wow'} )
 
-    dc.queue_metadata(None, { 'meta_field': 'meta_value, wow'} )
-    dc.queue_commit()
+    dc.queue_record(d)
+    (_id, _content) = dc.queue_commit()
+    print("queue_id:", _id)
+    print("message: ", _content)
+
+    allDone = False
+    for i in range(10):
+        vs = dc.validation_status(_id)
+        if vs.get('status', 0) == 100:
+            print("done processing: ", vs)
+            allDone = True
+            break
+        time.sleep(1)
+
+    if not allDone:
+        print("failed to finish processing")
+        sys.exit(2)
     return
 
 if __name__ == "__main__":
