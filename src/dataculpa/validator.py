@@ -195,7 +195,11 @@ class DataCulpaValidator:
         logger.debug("DataCulpaValidator destructor called")
 
     def test_connection(self):
-        url = self._get_base_url() + "test/connection"
+        """ 
+        Returns 0 if all is well, or returns 1 if the connection worked but we didn't get a response we liked.
+        Otherwise will raise a variety of exceptions.
+        """
+        url = self._get_base_url("test/connection")
         r = self.GET(url)
         jr = self._parseJson(url, r.content)
 
