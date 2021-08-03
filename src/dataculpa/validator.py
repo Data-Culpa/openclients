@@ -1,8 +1,8 @@
 #
 # validator.py
-# Data Culpa Python Client
+# Data Culpa Validator Python Client
 #
-# Copyright (c) 2020 Data Culpa, Inc.
+# Copyright (c) 2020-2021 Data Culpa, Inc.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to 
@@ -41,6 +41,38 @@ except:
 
 logger = logging.getLogger('dataculpa')
 #logger.basicConfig(format='%(asctime)s %(message)s', level=logger.DEBUG)
+
+# Create handlers
+c_handler = logging.StreamHandler()
+f_handler = logging.FileHandler('dataculpa-client.log')
+c_handler.setLevel(logging.WARNING)
+f_handler.setLevel(logging.ERROR)
+
+# Create formatters and add it to handlers
+c_format = logging.Formatter('dataculpa %(name)s - %(levelname)s - %(message)s')
+f_format = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+c_handler.setFormatter(c_format)
+f_handler.setFormatter(f_format)
+
+# Add handlers to the logger
+logger.addHandler(c_handler)
+logger.addHandler(f_handler)
+
+class DataCulpaConnectionError(Exception):
+    def __init__(self, url, message):
+        logger.error("Connection error for url %s: __%s__" % (url, message))
+        super().__init__("Connection error for URL %s: __%s__" % (url, message))
+
+class DataCulpaServerResponseParseError(Exception):
+    def __init__(self, url, payload):
+        logger.error("Error parsing result from url %s: __%s__" % (url, payload))
+        super().__init__("Bad response from URL %s: __%s__" % (url, payload))
+
+class DataCulpaBadServerCodeError(Exception):
+    def __init__(self, status_code, message):
+        self.status_code = status_code
+        self.message = "Unexpected status code %s: %s" % (status_code, message)
+        super().__init__(self.message)
 
 def log_error(s):
     return
@@ -99,6 +131,7 @@ class DataCulpaValidator:
         self.api_secret = api_secret
         self.queue_window = queue_window
         self._queue_buffer = []
+        self._queue_ready = False
 
         self._queue_errors = []
         self._queue_id = None
@@ -110,26 +143,64 @@ class DataCulpaValidator:
 
         self._pipeline_id = None
 
+    def GET(self, url, headers=None):
+        if headers is None:
+            headers = self._json_headers()
+
+        try:
+            r = requests.get(url=url, headers=headers)
+            if r.status_code != 200:
+                raise DataCulpaBadServerCodeError(r.status_code, "url was %s" % url)
+            return r
+        except requests.exceptions.Timeout:
+            raise DataCulpaConnectionError(url, "timed out")
+        except requests.exceptions.HTTPError as err:
+            raise DataCulpaConnectionError(url, "http error: %s" % err)
+        except requests.RequestException as e:
+            raise DataCulpaConnectionError(url, "request error: %s" % e)
+        except BaseException as e:
+            raise DataCulpaConnectionError(url, "unexpected error: %s" % e)
+        return None
+
+    def POST(self, url, data, timeout=10.0, headers=None):
+        if headers is None:
+            headers = self._json_headers()
+
+        try:
+            r = requests.post(url=url,
+                              data=data,
+                              timeout=timeout,
+                              headers=headers)
+            if r.status_code != 200:
+                raise DataCulpaBadServerCodeError(r.status_code, "url was %s" % url)
+            return r
+        except requests.exceptions.Timeout:
+            raise DataCulpaConnectionError(url, "timed out")
+        except requests.exceptions.HTTPError as err:
+            raise DataCulpaConnectionError(url, "http error: %s" % err)
+        except requests.RequestException as e:
+            raise DataCulpaConnectionError(url, "request error: %s" % e)
+        except BaseException as e:
+            raise DataCulpaConnectionError(url, "unexpected error: %s" % e)
+        return None
+
+    def _parseJson(self, url, js_str):
+        try:
+            jr = json.loads(js_str)
+        except:
+            raise DataCulpaServerResponseParseError(url, js_str)
+        return jr
 
     def __del__(self):
         logger.debug("DataCulpaValidator destructor called")
 
-
     def test_connection(self):
         url = self._get_base_url() + "test/connection"
-        r = requests.get(url=url,
-                         headers=self._json_headers())
-        if r.status_code != 200:
-            logger.error("got status code %s for %s" % (r.status_code, url))
-            return 1
+        r = self.GET(url)
+        jr = self._parseJson(url, r.content)
 
-        try:
-            jr = json.loads(r.content)
-            if jr.get('status') is None:
-                logger.error("missing status")
-                return 1
-        except:
-            logger.error("Error parsing result: __%s__", r.content)
+        if jr.get('status') is None:
+            logger.error("missing status")
             return 1
 
         # FIXME: needs more error handling.
@@ -137,17 +208,10 @@ class DataCulpaValidator:
 
     def _get_pipeline_id(self):
         if self._pipeline_id is None:
-            pipe_id_request = self._get_base_url() + "data/metadata/pipeline-id/" + self._build_pipeline_url_suffix()
-            r = requests.get(url=pipe_id_request, headers=self._json_headers())
-            if r.status_code != 200:
-                raise Exception("unexpected result...status_code = ", r.status_code)
-
-            jr = None        
-            try:
-                jr = json.loads(r.content)
-                self._pipeline_id = jr.get('id')
-            except:
-                logger.error("Error parsing result: __%s__", r.content)
+            url = self._get_base_url("data/metadata/pipeline-id/") +  + self._build_pipeline_url_suffix()
+            r = self.GET(url)
+            jr = self._parseJson(url, r.content)
+            self._pipeline_id = jr.get('id')
 
         return self._pipeline_id
 
@@ -157,17 +221,10 @@ class DataCulpaValidator:
 
         if _id is not None:
             # now we can get the config...
-            config_url = self._get_base_url() + "data/metadata/pipeline-config/" + str(_id)
-            r = requests.get(url=config_url, headers=self._json_headers())
-            if r.status_code != 200:
-                raise Exception("unexpected result... perhaps the pipeline isn't defined yet?")
+            config_url = self._get_base_url("data/metadata/pipeline-config/%s" % str(_id))
 
-            jr = None        
-            try:
-                jr = json.loads(r.content)
-            except:
-                logger.error("Error parsing result: __%s__", r.content)
-
+            r = self.GET(config_url)
+            jr = self._parseJson(config_url, r.content)
             return jr
 
         return None
@@ -177,29 +234,25 @@ class DataCulpaValidator:
 
         if _id is not None:
             # now we can get the config...
-            config_url = self._get_base_url() + "data/recent_batch_names/" + str(_id)
-            r = requests.get(url=config_url, headers=self._json_headers())
-            if r.status_code != 200:
-                raise Exception("unexpected result... perhaps the pipeline isn't defined yet?")
+            config_url = self._get_base_url("data/recent_batch_names/%s" % str(_id))
 
-            jr = None        
-            try:
-                jr = json.loads(r.content)
-            except:
-                logger.error("Error parsing result: __%s__", r.content)
-
+            r = self.GET(config_url)
+            jr = self._parseJson(config_url, r.content)
             return jr
 
         return None
 
     def set_use_gold(self, batch_entry):
-        pass
+        raise NotImplementedError
 
     # add a new call for setting the gold standard configuration item...but to what?
     # we need the list of potential files we could use.
 
-    def _get_base_url(self):
-        return "%s://%s:%s/" % (self.protocol, self.host, self.port)
+    def _get_base_url(self, s=None):
+        if s is None:
+            return "%s://%s:%s/" % (self.protocol, self.host, self.port)
+
+        return "%s://%s:%s/%s" % (self.protocol, self.host, self.port, s)
 
     def _whack_str(self, s):
         return base64.urlsafe_b64encode(s.encode('utf-8')).decode('utf-8')
@@ -246,9 +299,9 @@ class DataCulpaValidator:
         try:
             with open(file_name, "rb") as csv_file:
                 r = requests.post(url=post_url, 
-                                files={file_name: csv_file}, 
-                                headers=self._csv_batch_headers(file_name),
-                                timeout=timeout) # 10 second timeout.
+                                  files={file_name: csv_file}, 
+                                  headers=self._csv_batch_headers(file_name),
+                                  timeout=timeout) # variable
                 #r.raise_for_status() # turn HTTP errors into exceptions -- 
             self._queue_buffer = []
 
@@ -271,10 +324,8 @@ class DataCulpaValidator:
 
         Note that this doesn't support hierarchical data; for that use queue_record calls.
         """
-        print("load_array() NOT IMPLEMENTED")
-
-        return
-
+        raise NotImplementedError
+        
     def queue_metadata(self, meta):
         # FIXME: maybe consider queuing locally and then flushing when the user calls commit()?
         # 
@@ -286,22 +337,17 @@ class DataCulpaValidator:
 
         if self._queue_id is not None:
             queue_id = self._queue_id
-        assert queue_id is not None, "open queue failed" # FIXME: handle this better.
+        else:
+            self._append_error("No queue object found")
+            raise DataCulpaConnectionError
 
         path = "queue/metadata/%s" % queue_id
         url = self._get_base_url() + path
 
         rs_str = json.dumps(meta, cls=json.JSONEncoder, default=str)
-        r = requests.post(url=url, 
-                          data=rs_str, 
-                          headers=self._json_headers())
-        try:
-            jr = json.loads(r.content)
-            return (queue_id, jr)
-        except:
-            self._append_error("Error parsing result: __%s__" % r.content)
-
-        return
+        r = self.POST(url, rs_str)
+        jr = self._parseJson(url, r.content)
+        return (queue_id, jr)
 
     def queue_record(self,
                     record,
@@ -361,28 +407,14 @@ class DataCulpaValidator:
         }
 
         rs_str = json.dumps(j, cls=json.JSONEncoder, default=str)
-        post_url = self._get_base_url() + "queue/open"
+        post_url = self._get_base_url("queue/open")
 
-        r = None
+        r = self.POST(post_url, rs_str)
+        self._queue_buffer = []
+        self._queue_ready = True
 
-        try:
-            r = requests.post(url=post_url, 
-                              data=rs_str, 
-                              headers=self._json_headers(),
-                              timeout=10.0) # 10 second timeout.
-            self._queue_buffer = []
-        except:
-            # FIXME: need to handle ConnectionRefusedError and so on!
-            logger.info("Probably got a time out...") 
-            traceback.print_exc()
-            return
-
-        if r is not None:
-            try:
-                jr = json.loads(r.content)
-                self._queue_id = jr.get('queue_id')
-            except:
-                logger.debug("Error parsing result: __%s__", r.content)
+        jr = self._parseJson(post_url, r.content)
+        self._queue_id = jr.get('queue_id')
 
         return # (None, 0, 0)
 
@@ -394,29 +426,13 @@ class DataCulpaValidator:
 
         rs_str = json.dumps(self._queue_buffer, cls=self._jsonEncoder, default=str)
         post_url = self._get_base_url() + path
-        #logger.debug("%s: about to post %d bytes to %s" % (datetime.now(), len(rs_str), post_url))
 
-        r = None
+        r = self.POST(url=post_url, 
+                      data=rs_str)
+        self._queue_buffer = []
 
-        try:
-            r = requests.post(url=post_url, 
-                              data=rs_str, 
-                              headers=self._json_headers(),
-                              timeout=10.0) # 10 second timeout.
-            self._queue_buffer = []
-        except:
-            # FIXME: need to handle ConnectionRefusedError and so on!
-            logger.info("Probably got a time out...") 
-            traceback.print_exc()
-
-        if r is not None:
-            try:
-                jr = json.loads(r.content)
-                #self._queue_id = jr.get('queue_id')
-                #return jr.get('queue_id'), jr.get('queue_count'), jr.get('queue_age')
-                # FIXME: improve error handling.
-            except:
-                logger.debug("Error parsing result: __%s__", r.content)
+        jr = self._parseJson(post_url, r.content)
+        # FIXME: improve error handling.
 
         return # (None, 0, 0)
 
@@ -436,57 +452,29 @@ class DataCulpaValidator:
         assert queue_id is not None
 
         self._queue_id = None
-
-        path = "queue/commit/%s" % queue_id
-        url = self._get_base_url() + path
-        r = requests.post(url=url, 
-                          data="", 
-                          headers=self._json_headers())
-        try:
-            jr = json.loads(r.content)
-            return (queue_id, jr)
-        except:
-            self._append_error("Error parsing result: __%s__" % r.content)
-
-        self._queue_id = None
-        return (queue_id, None)
+        url = self._get_base_url("queue/commit/%s" % queue_id)
+        r = self.POST(url, "")
+        jr = self._parseJson(url, r.content)
+        return (queue_id, jr)
 
     def get_queue_id(self):
         return self._queue_id
 
     def validation_status(self, queue_id, wait_for_processing=False):
-        path = "validation/status/%s" % queue_id
-        url = self._get_base_url() + path
-        r = requests.get(url=url, headers=self._json_headers())
-        if r.status_code != 200:
-            return "Error"
+        url = self._get_base_url("validation/status/%s" % queue_id)
 
-        try:
-            jr = json.loads(r.content)
-            return jr
-        except:
-            logger.error("Error parsing result: __%s__", r.content)
-        return None
-
-#    def debug_list_pipelines():
-#
+        r = self.GET(url)
+        jr = self._parseJson(url, r.content)
+        return jr
 
     def query_alerts(self):
         # get alerts for this pipeline
         pid = self._get_pipeline_id()
         assert pid is not None, "FIXME: return an error"
-        _url = self._get_base_url() + "data/metadata/alerts/%s" % pid
+        url = self._get_base_url("data/metadata/alerts/%s" % pid)
 
-        r = requests.get(url=_url, headers=self._json_headers())
-        if r.status_code != 200:
-            raise Exception("unexpected result... perhaps the pipeline isn't defined yet?")
-        
-        jr = None        
-        try:
-            jr = json.loads(r.content)
-        except:
-            logger.error("Error parsing result: __%s__", r.content)
-
+        r = self.GET(url)
+        jr = self._parseJson(url, r.content)
         return jr
 
 

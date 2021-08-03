@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 #
 # basic.py
-# Data Culpa Open Clients
+# Data Culpa Validator Open Clients
 #
-# Copyright (c) 2020 Data Culpa, Inc.
+# Copyright (c) 2020-2021 Data Culpa, Inc.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to 
@@ -37,8 +37,8 @@ def main():
 
     dc = DataCulpaValidator("dc-unit-test-pipeline",
                             protocol=DataCulpaValidator.HTTP,
-                            dc_host="192.168.1.13", 
-                            dc_port=7777)
+                            dc_host="192.168.1.65", 
+                            dc_port=7778)
 
     # dc.test_connection()
 
@@ -47,9 +47,10 @@ def main():
           'run_time': str(datetime.now()),
           'random_value': random.random() }
 
-    dc.queue_record(d)
+    # queue_metadata will open a queue if it is not open.
+    dc.queue_metadata({ 'meta_field': 'meta_value, wow'} )
 
-    dc.queue_metadata(None, { 'meta_field': 'meta_value, wow'} )
+    dc.queue_record(d)
     dc.queue_commit()
     return
 
