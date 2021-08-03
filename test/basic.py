@@ -29,13 +29,13 @@ from dataculpa import DataCulpaValidator
 from datetime import datetime
 
 import random
-import socket
-
-import json
+import socket 
+import sys
+import time
 
 def main():
 
-    dc = DataCulpaValidator("dc-unit-test-pipeline",
+    dc = DataCulpaValidator("client-3",
                             protocol=DataCulpaValidator.HTTP,
                             dc_host="192.168.1.65", 
                             dc_port=7778)
@@ -51,7 +51,22 @@ def main():
     dc.queue_metadata({ 'meta_field': 'meta_value, wow'} )
 
     dc.queue_record(d)
-    dc.queue_commit()
+    (_id, _content) = dc.queue_commit()
+    print("queue_id:", _id)
+    print("message: ", _content)
+
+    allDone = False
+    for i in range(10):
+        vs = dc.validation_status(_id)
+        if vs.get('status', 0) == 100:
+            print("done processing: ", vs)
+            allDone = True
+            break
+        time.sleep(1)
+
+    if not allDone:
+        print("failed to finish processing")
+        sys.exit(2)
     return
 
 if __name__ == "__main__":

@@ -284,8 +284,7 @@ class DataCulpaValidator:
         """
         Send the raw file contents to Validator and commit the queue.
         """
-        path = "batch-validate/" + str(self._queue_id)
-        post_url = self._get_base_url() + path
+        post_url = self._get_base_url("batch-validate/%s" % self._queue_id)
 
         timeout = 10
         # if the file is big, allow more time... need something smarter here.
@@ -422,10 +421,9 @@ class DataCulpaValidator:
         if self._queue_id is None:
             self._open_queue()
             assert self._queue_id is not None, "unable to open a queue"
-        path = "queue/enqueue/%s" % self._queue_id
 
         rs_str = json.dumps(self._queue_buffer, cls=self._jsonEncoder, default=str)
-        post_url = self._get_base_url() + path
+        post_url = self._get_base_url("queue/enqueue/%s" % self._queue_id)
 
         r = self.POST(url=post_url, 
                       data=rs_str)
