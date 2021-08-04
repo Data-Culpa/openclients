@@ -25,13 +25,27 @@
 # DEALINGS IN THE SOFTWARE.
 #
 
-from dataculpa import DataCulpaValidator
-from datetime import datetime
+from datetime import datetime, timedelta
 
+import os
 import random
 import socket 
 import sys
 import time
+
+lib_path = os.path.realpath("../src")
+if not os.path.exists(lib_path + "/dataculpa/validator.py"):
+    assert False, "I don't know where your cwd is, but it needs to be in test/"
+    
+sys.path.insert(0, lib_path)
+
+import dataculpa
+from dataculpa import DataCulpaValidator
+
+assert dataculpa.__file__.startswith(lib_path)
+#print(sys.path)
+#print(dataculpa.__file__)
+
 
 def main():
 
@@ -40,7 +54,18 @@ def main():
                             dc_host="192.168.1.65", 
                             dc_port=7778)
 
-    # dc.test_connection()
+    rc = dc.test_connection()
+    print("TEST CONNECTION:", rc)
+
+    config = dc.get_config()
+    assert config is not None
+    print("CONFIG:", config)
+    assert config.get('id') is not None
+
+    recent_batches = dc.get_recent_batchnames()
+    assert recent_batches is not None
+    print("RECENT:", recent_batches)
+
 
     d = { 'app_name': 'basic test',
           'hostname': socket.gethostname(),
@@ -54,6 +79,7 @@ def main():
     (_id, _content) = dc.queue_commit()
     print("queue_id:", _id)
     print("message: ", _content)
+    assert _content.get('had_error') == False, "got an error from the server!"
 
     allDone = False
     for i in range(10):
@@ -67,6 +93,44 @@ def main():
     if not allDone:
         print("failed to finish processing")
         sys.exit(2)
+
+
+    recent_batches = dc.get_recent_batchnames()
+    assert recent_batches is not None
+    print("RECENT:", recent_batches)
+
+    # FIXME: set use gold.
+
+    # Now load a test CSV file.
+    s = \
+"""
+app_name,hostname,run_time,random_value
+test1,localhost,today,6503
+test2,localhost,today,4382
+test3,localhost,today,5493
+test4,,today,3040
+"""
+
+    with open("/tmp/test.csv", "w") as fp:
+        fp.write(s)
+    
+    now = datetime.now()
+    now = now - timedelta(days=2)
+    print(now)
+    dc = DataCulpaValidator("client-3",
+                            protocol=DataCulpaValidator.HTTP,
+                            dc_host="192.168.1.65", 
+                            dc_port=7778,
+                            timeshift=now)
+
+    rc = dc.test_connection()
+    print("TEST CONNECTION:", rc)
+
+    worked_OK = dc.load_csv_file("/tmp/test.csv")
+    assert worked_OK == True, "error loading test.csv"
+
+
+
     return
 
 if __name__ == "__main__":

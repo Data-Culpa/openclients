@@ -210,15 +210,24 @@ class DataCulpaValidator:
         # FIXME: needs more error handling.
         return 0
 
+    def _whack_str(self, s):
+        return base64.urlsafe_b64encode(s.encode('utf-8')).decode('utf-8')
+
+    def _build_pipeline_url_suffix(self):
+        s = "%s/%s/%s/%s" % (self._whack_str(self.pipeline_name), 
+                             self._whack_str(self.pipeline_environment), 
+                             self._whack_str(self.pipeline_stage), 
+                             self._whack_str(self.pipeline_version))
+        return s
+
     def _get_pipeline_id(self):
         if self._pipeline_id is None:
-            url = self._get_base_url("data/metadata/pipeline-id/") +  + self._build_pipeline_url_suffix()
+            url = self._get_base_url("data/metadata/pipeline-id/") + self._build_pipeline_url_suffix()
             r = self.GET(url)
             jr = self._parseJson(url, r.content)
             self._pipeline_id = jr.get('id')
 
         return self._pipeline_id
-
 
     def get_config(self):
         _id = self._get_pipeline_id()
@@ -259,16 +268,6 @@ class DataCulpaValidator:
             return "%s://%s:%s/" % (self.protocol, self.host, self.port)
 
         return "%s://%s:%s/%s" % (self.protocol, self.host, self.port, s)
-
-    def _whack_str(self, s):
-        return base64.urlsafe_b64encode(s.encode('utf-8')).decode('utf-8')
-
-    def _build_pipeline_url_suffix(self):
-        s = "%s/%s/%s/%s" % (self._whack_str(self.pipeline_name), 
-                             self._whack_str(self.pipeline_environment), 
-                             self._whack_str(self.pipeline_stage), 
-                             self._whack_str(self.pipeline_version))
-        return s
 
     def _json_headers(self):
         headers = {'Content-type': 'application/json',
@@ -323,14 +322,6 @@ class DataCulpaValidator:
  
         return False # got an error.
 
-    def load_flat_array(self, a):
-        """
-        Batch load the array of data, e.g., data read in from a csv.reader() call.
-
-        Note that this doesn't support hierarchical data; for that use queue_record calls.
-        """
-        raise NotImplementedError
-        
     def queue_metadata(self, meta):
         # FIXME: maybe consider queuing locally and then flushing when the user calls commit()?
         # 
@@ -481,9 +472,3 @@ class DataCulpaValidator:
         jr = self._parseJson(url, r.content)
         return jr
 
-
-    def query_summary_data(self):
-        # get the summary for this pipeline 
-        return
-
-    
