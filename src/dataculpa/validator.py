@@ -229,6 +229,8 @@ class DataCulpaValidator:
 
             r = self.GET(config_url)
             jr = self._parseJson(config_url, r.content)
+            if jr.get('id') is None:
+                jr['id'] = _id
             return jr
 
         return None
