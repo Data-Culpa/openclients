@@ -40,9 +40,9 @@ if not os.path.exists(lib_path + "/dataculpa/validator.py"):
 sys.path.insert(0, lib_path)
 
 import dataculpa
-from dataculpa import DataCulpaValidator
+from dataculpa import DataCulpaValidator, DataCulpaConnectionError
 
-assert dataculpa.__file__.startswith(lib_path)
+assert dataculpa.__file__.startswith(lib_path), "expected %s to start with %s" % (dataculpa.__file__, lib_path)
 #print(sys.path)
 #print(dataculpa.__file__)
 
@@ -75,14 +75,18 @@ def main():
     # queue_metadata will open a queue if it is not open.
     dc.queue_metadata({ 'meta_field': 'meta_value, wow'} )
 
-    dc.queue_record(d)
+    for i in range(100):
+        d['random_value'] = random.random()
+        dc.queue_record(d)
+    
     (_id, _content) = dc.queue_commit()
     print("queue_id:", _id)
     print("message: ", _content)
     assert _content.get('had_error') == False, "got an error from the server!"
 
+
     allDone = False
-    for i in range(10):
+    for i in range(30):
         vs = dc.validation_status(_id)
         if vs.get('status', 0) == 100:
             print("done processing: ", vs)
@@ -129,7 +133,26 @@ test4,,today,3040
     worked_OK = dc.load_csv_file("/tmp/test.csv")
     assert worked_OK == True, "error loading test.csv"
 
+    has_errors = dc.has_errors()
+    assert has_errors == False
+    the_errors = dc.get_errors()
+    assert the_errors == []
 
+    the_alerts = dc.query_alerts()
+    print("THE ALERTS:", the_alerts)
+
+    #
+    # Connect to a non-server
+    # 
+    dc = None
+    try:
+        dc = DataCulpaValidator("client-3",
+                                protocol=DataCulpaValidator.HTTP,
+                                dc_host="localhost", 
+                                dc_port=80)
+    except DataCulpaConnectionError:
+        print("Good, got the connection exception")
+    
 
     return
 
