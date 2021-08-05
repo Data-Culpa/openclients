@@ -257,8 +257,24 @@ class DataCulpaValidator:
 
         return None
 
-    def set_use_gold(self, batch_entry):
-        raise NotImplementedError
+    def set_use_gold(self, yesno, batch_entry=None):
+        _id = self._get_pipeline_id()
+        if _id is not None:
+            existing_config = self.get_config()
+            config_url = self._get_base_url("data/metadata/pipeline-config/%s" % str(_id))
+
+            p = existing_config
+            if yesno:
+                assert batch_entry is not None, "batch_entry must be set to an element in get_recent_batchnames() if use_gold is True"
+                p['pipeline_config'] = { 'uses_gold': True, 'gold_batch_names': [ batch_entry ]}
+            else:
+                p['pipeline_config'] = { 'uses_gold': False }
+            js = json.dumps(p)
+            r = self.POST(config_url, js)
+            jr = self._parseJson(config_url, r.content)
+            return jr
+
+        return False
 
     # add a new call for setting the gold standard configuration item...but to what?
     # we need the list of potential files we could use.
@@ -309,7 +325,13 @@ class DataCulpaValidator:
                 #r.raise_for_status() # turn HTTP errors into exceptions -- 
             self._queue_buffer = []
 
-            return True # worked.
+            jr = self._parseJson(post_url, r.content)
+            had_error = jr.get('had_error', False)
+            if had_error:
+                self._append_error(jr)
+                return False
+
+            return True
         except requests.exceptions.Timeout:
             logger.error("timed out trying to load csv file...")
 #        except requests.exceptions.RetryError:

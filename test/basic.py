@@ -48,7 +48,7 @@ assert dataculpa.__file__.startswith(lib_path), "expected %s to start with %s" %
 
 
 def main():
-
+    # FIXME: move this to an .env file.
     dc = DataCulpaValidator("client-3",
                             protocol=DataCulpaValidator.HTTP,
                             dc_host="192.168.1.65", 
@@ -66,7 +66,10 @@ def main():
     assert recent_batches is not None
     print("RECENT:", recent_batches)
 
-
+    # Test using gold.
+    jr = dc.set_use_gold(True, recent_batches[0])
+    assert jr != False, "use_gold failed"
+    
     d = { 'app_name': 'basic test',
           'hostname': socket.gethostname(),
           'run_time': str(datetime.now()),
@@ -102,8 +105,6 @@ def main():
     recent_batches = dc.get_recent_batchnames()
     assert recent_batches is not None
     print("RECENT:", recent_batches)
-
-    # FIXME: set use gold.
 
     # Now load a test CSV file.
     s = \
