@@ -58,7 +58,7 @@ def getWatchpointNames():
             DC_HOST,
             DC_PORT,
             WATCHPOINT_NAME)
-    print("WATCHPOINT NAMES:", jr)
+    #print("WATCHPOINT NAMES:", jr)
     if jr is None:
         jr = []
     return jr
