@@ -21,10 +21,10 @@ Calling Validator from your pipeline is as simple as modifying the pipeline code
                     # if you want to send multiple data feeds to Validator,
                     # you can push those in via different pipeline_stage names
  
-          dc = DataCulpaValidator(pipeline_name, 
-                                  pipeline_environment="default",
-                                  pipeline_stage="default",
-                                  pipeline_version="default",
+          dc = DataCulpaValidator(watchpoint_name, 
+                                  watchpoint_environment="default",
+                                  watchpoint_stage="default",
+                                  watchpoint_version="default",
                                   protocol="http", 
                                   dc_host="localhost", 
                                   dc_port=7777, 
@@ -32,11 +32,12 @@ Calling Validator from your pipeline is as simple as modifying the pipeline code
                                   api_secret=None,
                                   queue_window=20,
                                   timeshift=None)
-          dc.queue_record(data)
+          for entry in data:
+              dc.queue_record(entry)
           dc.queue_commit()
           …
 
-The `pipeline_name`, `_environment`, `_stage`, and `_version` values are all strings of your choosing. You may wish to call Validator from both test and production environments, for example, or at multiple stages in pipeline processing, such as "ingest", "post_cleaning", "outputs." These top-level metadata fields help to organize your dashboards and visualizations when analyzing the results. 
+The `watchpoint_name`, `_environment`, `_stage`, and `_version` values are all strings of your choosing. You may wish to call Validator from both test and production environments, for example, or at multiple stages in pipeline processing, such as "ingest", "post_cleaning", "outputs." These top-level metadata fields help to organize your dashboards and visualizations when analyzing the results. 
 
 Note that `_name`, `_environment`, and `_stage` are used to select a specific pipeline; `_version` is merely top-level metadata and is not used as a selector.
  
@@ -111,6 +112,13 @@ You can perform the following operations to evaluate pipeline performance:
 * View value changes over time (min, max, avg)
 * Compare multiple time periods by manually selecting time offsets or keying on metadata or field data to select windows for comparison.
 
+### Updating the client library
+
+Upgrade in the normal way; with pip it's
+
+    pip install dataculpa-client --upgrade
+
+(Note that some systems may require you use pip3 for python3.)
 
 ### Questions? Feedback?
 
