@@ -44,15 +44,51 @@ from dataculpa import DataCulpaValidator, DataCulpaConnectionError
 
 assert dataculpa.__file__.startswith(lib_path), "expected %s to start with %s" % (dataculpa.__file__, lib_path)
 #print(sys.path)
-#print(dataculpa.__file__)
+print(dataculpa.__file__)
+
+# FIXME: load from environment/.env file for standard stuff...
+DC_HOST = "192.168.1.65"
+DC_PORT = 7778
+
+WATCHPOINT_NAME = "openclients-test"
+
+def getWatchpointNames():
+    jr = DataCulpaValidator.GetWatchpointVariations(
+            DataCulpaValidator.HTTP,
+            DC_HOST,
+            DC_PORT,
+            WATCHPOINT_NAME)
+    print("WATCHPOINT NAMES:", jr)
+    if jr is None:
+        jr = []
+    return jr
 
 
 def main():
+    wList = getWatchpointNames()
+
+    maxVers = 0
+    for entry in wList:
+        v = entry.get('version')
+        try:
+            v = int(v)
+        except:
+            v = -100 - len(wList)
+        maxVers = max(maxVers, v)
+    maxVers += 1
+    # gen the next QA id.
+    now = datetime.now()
+    #wp_version = now.strftime("%Y%m%d %H%M%S")
+    wp_version = str(maxVers)
+    wp_env = "qa:" + socket.gethostname()
+
     # FIXME: move this to an .env file.
-    dc = DataCulpaValidator("client-3",
+    dc = DataCulpaValidator(WATCHPOINT_NAME,
+                            watchpoint_version=wp_version,
+                            watchpoint_environment=wp_env,
                             protocol=DataCulpaValidator.HTTP,
-                            dc_host="192.168.1.65", 
-                            dc_port=7778)
+                            dc_host=DC_HOST, 
+                            dc_port=DC_PORT)
 
     rc = dc.test_connection()
     print("TEST CONNECTION:", rc)
@@ -62,14 +98,7 @@ def main():
     print("CONFIG:", config)
     assert config.get('id') is not None
 
-    recent_batches = dc.get_recent_batchnames()
-    assert recent_batches is not None
-    print("RECENT:", recent_batches)
-
-    # Test using gold.
-    jr = dc.set_use_gold(True, recent_batches[0])
-    assert jr != False, "use_gold failed"
-    
+    # write some data
     d = { 'app_name': 'basic test',
           'hostname': socket.gethostname(),
           'run_time': str(datetime.now()),
@@ -106,6 +135,11 @@ def main():
     assert recent_batches is not None
     print("RECENT:", recent_batches)
 
+    # Test using gold.
+    jr = dc.set_use_gold(True, recent_batches[0])
+    assert jr != False, "use_gold failed"
+
+
     # Now load a test CSV file.
     s = \
 """
@@ -122,10 +156,13 @@ test4,,today,3040
     now = datetime.now()
     now = now - timedelta(days=2)
     print(now)
-    dc = DataCulpaValidator("client-3",
+    
+    dc = DataCulpaValidator(WATCHPOINT_NAME,
+                            watchpoint_version=wp_version,
+                            watchpoint_environment=wp_env,
                             protocol=DataCulpaValidator.HTTP,
-                            dc_host="192.168.1.65", 
-                            dc_port=7778,
+                            dc_host=DC_HOST, 
+                            dc_port=DC_PORT,
                             timeshift=now)
 
     rc = dc.test_connection()
@@ -147,10 +184,13 @@ test4,,today,3040
     # 
     dc = None
     try:
-        dc = DataCulpaValidator("client-3",
+        print("Expecting a failure here:")
+        dc = DataCulpaValidator(WATCHPOINT_NAME,
+                                watchpoint_version=wp_version,
+                                watchpoint_environment=wp_env,
                                 protocol=DataCulpaValidator.HTTP,
-                                dc_host="localhost", 
-                                dc_port=80)
+                                dc_host="failed-host", 
+                                dc_port=1234)
     except DataCulpaConnectionError:
         print("Good, got the connection exception")
     

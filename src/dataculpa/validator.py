@@ -89,10 +89,6 @@ def show_versions():
     logger.error("Need to implement show_version!")
     return    
 
-class PipelineAlertConfig:
-    def __init__(self):
-        pass
-
 
 class DataCulpaValidator:
     HTTP = "http"
@@ -100,10 +96,10 @@ class DataCulpaValidator:
     # FIXME: http, message queues, etc.
 
     def __init__(self, 
-                 pipeline_name, 
-                 pipeline_environment="default",
-                 pipeline_stage="default",
-                 pipeline_version="default",
+                 watchpoint_name, 
+                 watchpoint_environment="default",
+                 watchpoint_stage="default",
+                 watchpoint_version="default",
                  protocol="http", 
                  dc_host="localhost", 
                  dc_port=7777, 
@@ -112,12 +108,12 @@ class DataCulpaValidator:
                  queue_window=20,
                  timeshift=None):
 
-        assert isinstance(pipeline_name, str), "pipeline_name must be a string"
+        assert isinstance(watchpoint_name, str), "watchpoint_name must be a string"
 
-        self.pipeline_name        = pipeline_name
-        self.pipeline_environment = pipeline_environment
-        self.pipeline_stage       = pipeline_stage
-        self.pipeline_version     = pipeline_version
+        self.watchpoint_name        = watchpoint_name
+        self.watchpoint_environment = watchpoint_environment
+        self.watchpoint_stage       = watchpoint_stage
+        self.watchpoint_version     = watchpoint_version
 
         self.protocol = protocol
         #if self.protocol == self.HTTP:
@@ -138,14 +134,33 @@ class DataCulpaValidator:
         self._queue_count = 0
 
         self._timeshift = timeshift
-
         self._open_queue()
 
         self._pipeline_id = None
 
-    def GET(self, url, headers=None):
+    @classmethod
+    def GetWatchpointVariations(cls, protocol, host, port, watchpoint_name):
+        try:
+            pName = base64.urlsafe_b64encode(watchpoint_name.encode('utf-8')).decode('utf-8')
+            url = "%s://%s:%s/%s" % (protocol, host, port, "data/metadata/watchpoint-variations/%s" % pName)
+
+            r = DataCulpaValidator.GET(url)
+        except:
+            raise DataCulpaConnectionError
+        
+        try:
+            jr = DataCulpaValidator._parseJson(url, r.content)
+            if jr is None:
+                return []
+        except:
+            raise DataCulpaServerResponseParseError
+        
+        return jr
+
+    @classmethod     
+    def GET(cls, url, headers=None):
         if headers is None:
-            headers = self._json_headers()
+            headers = DataCulpaValidator._json_headers()
 
         try:
             r = requests.get(url=url, headers=headers)
@@ -184,12 +199,21 @@ class DataCulpaValidator:
             raise DataCulpaConnectionError(url, "unexpected error: %s" % e)
         return None
 
-    def _parseJson(self, url, js_str):
+    @classmethod
+    def _parseJson(cls, url, js_str):
         try:
             jr = json.loads(js_str)
         except:
             raise DataCulpaServerResponseParseError(url, js_str)
         return jr
+
+    @classmethod
+    def _json_headers(cls):
+        headers = {'Content-type': 'application/json',
+                   'Accept': 'text/plain',
+                   
+                   }
+        return headers
 
     def __del__(self):
         logger.debug("DataCulpaValidator destructor called")
@@ -214,10 +238,10 @@ class DataCulpaValidator:
         return base64.urlsafe_b64encode(s.encode('utf-8')).decode('utf-8')
 
     def _build_pipeline_url_suffix(self):
-        s = "%s/%s/%s/%s" % (self._whack_str(self.pipeline_name), 
-                             self._whack_str(self.pipeline_environment), 
-                             self._whack_str(self.pipeline_stage), 
-                             self._whack_str(self.pipeline_version))
+        s = "%s/%s/%s/%s" % (self._whack_str(self.watchpoint_name), 
+                             self._whack_str(self.watchpoint_environment), 
+                             self._whack_str(self.watchpoint_stage), 
+                             self._whack_str(self.watchpoint_version))
         return s
 
     def _get_pipeline_id(self):
@@ -284,13 +308,6 @@ class DataCulpaValidator:
             return "%s://%s:%s/" % (self.protocol, self.host, self.port)
 
         return "%s://%s:%s/%s" % (self.protocol, self.host, self.port, s)
-
-    def _json_headers(self):
-        headers = {'Content-type': 'application/json',
-                   'Accept': 'text/plain',
-                   
-                   }
-        return headers
 
     def _csv_batch_headers(self, file_name):
         headers = {'Content-type': 'text/csv', 
@@ -417,16 +434,16 @@ class DataCulpaValidator:
 
     def _open_queue(self):
         j = { 
-                'pipeline' : self.pipeline_name,
-                'context'  : self.pipeline_environment,
-                'stage'    : self.pipeline_stage,
-                'version'  : self.pipeline_version,
+                'pipeline' : self.watchpoint_name,
+                'context'  : self.watchpoint_environment,
+                'stage'    : self.watchpoint_stage,
+                'version'  : self.watchpoint_version,
                 'timeshift': self._calc_timeshift_seconds()
         }
 
         rs_str = json.dumps(j, cls=json.JSONEncoder, default=str)
         post_url = self._get_base_url("queue/open")
-
+        
         r = self.POST(post_url, rs_str)
         self._queue_buffer = []
         self._queue_ready = True

@@ -1,0 +1,2 @@
+[Master]
+init-hook='import sys; import os; sys.path.insert(0, os.path.realpath("../src/")); print("***********************");print("pylint path: ", sys.path);   print("***********************");'
