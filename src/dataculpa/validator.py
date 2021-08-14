@@ -140,13 +140,11 @@ class DataCulpaValidator:
 
     @classmethod
     def GetWatchpointVariations(cls, protocol, host, port, watchpoint_name):
-        try:
-            pName = base64.urlsafe_b64encode(watchpoint_name.encode('utf-8')).decode('utf-8')
-            url = "%s://%s:%s/%s" % (protocol, host, port, "data/metadata/watchpoint-variations/%s" % pName)
 
-            r = DataCulpaValidator.GET(url)
-        except:
-            raise DataCulpaConnectionError
+        pName = base64.urlsafe_b64encode(watchpoint_name.encode('utf-8')).decode('utf-8')
+        url = "%s://%s:%s/%s" % (protocol, host, port, "data/metadata/watchpoint-variations/%s" % pName)
+
+        r = DataCulpaValidator.GET(url)
         
         try:
             jr = DataCulpaValidator._parseJson(url, r.content)
