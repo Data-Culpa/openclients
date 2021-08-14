@@ -468,6 +468,20 @@ class DataCulpaValidator:
 
         return # (None, 0, 0)
 
+    def queue_fastqueue(self, field_name, file_path):
+        """Zero-copy: the file-path is on a shared filesystem with Validator"""
+
+        assert len(self._queue_buffer) == 0, "fastqueue cannot be mixed with incremental queueing."
+
+        queue_id = self._queue_id
+        assert queue_id is not None
+
+        url = self._get_base_url("queue/fastqueue/%s" % queue_id)
+        params = { "field_name": file_path, "field_name": field_name }
+        r = self.POST(url, params)
+        jr = self._parseJson(url, r.content)
+        return (queue_id, jr)
+
     def queue_commit(self):
         """Returns the queue_id if successful -- so that we can query for validation status on that queue_id.
            By the time this returns, the queue has been closed--so the only utility is to query for validation status
