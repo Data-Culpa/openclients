@@ -427,6 +427,7 @@ class DataCulpaValidator:
                 dt = int(dt.total_seconds())
                 return dt
 
+        assert False, "Unexpected type for timeshift - should an int/float of seconds or a datetime, but got a %s" % type(ts)
         return 0
 
 
