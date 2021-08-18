@@ -60,12 +60,12 @@ logger.addHandler(f_handler)
 
 class DataCulpaConnectionError(Exception):
     def __init__(self, url, message):
-        logger.error("Connection error for url %s: __%s__" % (url, message))
+        #logger.error("Connection error for url %s: __%s__" % (url, message))
         super().__init__("Connection error for URL %s: __%s__" % (url, message))
 
 class DataCulpaServerResponseParseError(Exception):
     def __init__(self, url, payload):
-        logger.error("Error parsing result from url %s: __%s__" % (url, payload))
+        #logger.error("Error parsing result from url %s: __%s__" % (url, payload))
         super().__init__("Bad response from URL %s: __%s__" % (url, payload))
 
 class DataCulpaBadServerCodeError(Exception):
@@ -172,6 +172,8 @@ class DataCulpaValidator:
         except requests.RequestException as e:
             raise DataCulpaConnectionError(url, "request error: %s" % e)
         except BaseException as e:
+            if isinstance(e, DataCulpaBadServerCodeError):
+                raise e # Don't wrap the exception we just made above.
             raise DataCulpaConnectionError(url, "unexpected error: %s" % e)
         return None
 
@@ -185,7 +187,16 @@ class DataCulpaValidator:
                               timeout=timeout,
                               headers=headers)
             if r.status_code != 200:
-                raise DataCulpaBadServerCodeError(r.status_code, "url was %s" % url)
+                new_text = r.text
+                # Chop off the annoying HTML nonsense if it's there..
+                if new_text.startswith("<!DOCTYPE"):
+                    p_pos = new_text.find("<p>")
+                    if p_pos >= 0:
+                        new_text = new_text[p_pos + 3:]
+                        p_pos = new_text.find("</p>")
+                        if p_pos > 0:
+                            new_text = new_text[:p_pos]
+                raise DataCulpaBadServerCodeError(r.status_code, "url was %s; text = %s" % (r.url, new_text))
             return r
         except requests.exceptions.Timeout:
             raise DataCulpaConnectionError(url, "timed out")
@@ -194,6 +205,8 @@ class DataCulpaValidator:
         except requests.RequestException as e:
             raise DataCulpaConnectionError(url, "request error: %s" % e)
         except BaseException as e:
+            if isinstance(e, DataCulpaBadServerCodeError):
+                raise e # Don't wrap the exception we just made above.
             raise DataCulpaConnectionError(url, "unexpected error: %s" % e)
         return None
 
