@@ -24,4 +24,4 @@
 
 .PHONY: client
 client:
-	pylint3 -E validator.py
+	pylint -E validator.py

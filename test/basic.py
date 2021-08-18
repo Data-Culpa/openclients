@@ -82,13 +82,18 @@ def main():
     wp_version = str(maxVers)
     wp_env = "qa:" + socket.gethostname()
 
+    now = datetime.now()
+    now = now - timedelta(days=2)
+    print(now)
+    
     # FIXME: move this to an .env file.
     dc = DataCulpaValidator(WATCHPOINT_NAME,
                             watchpoint_version=wp_version,
                             watchpoint_environment=wp_env,
                             protocol=DataCulpaValidator.HTTP,
                             dc_host=DC_HOST, 
-                            dc_port=DC_PORT)
+                            dc_port=DC_PORT,
+                            timeshift=now)
 
     rc = dc.test_connection()
     print("TEST CONNECTION:", rc)
@@ -153,17 +158,12 @@ test4,,today,3040
     with open("/tmp/test.csv", "w") as fp:
         fp.write(s)
     
-    now = datetime.now()
-    now = now - timedelta(days=2)
-    print(now)
-    
     dc = DataCulpaValidator(WATCHPOINT_NAME,
                             watchpoint_version=wp_version,
                             watchpoint_environment=wp_env,
                             protocol=DataCulpaValidator.HTTP,
                             dc_host=DC_HOST, 
-                            dc_port=DC_PORT,
-                            timeshift=now)
+                            dc_port=DC_PORT)
 
     rc = dc.test_connection()
     print("TEST CONNECTION:", rc)
