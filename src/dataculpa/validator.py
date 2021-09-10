@@ -107,6 +107,9 @@ class DataCulpaValidator:
                  api_secret=None,
                  queue_window=20,
                  timeshift=None):
+        
+        assert api_access_id is not None, "api_access_id is required with Validator 1.1 and later."
+        assert api_secret    is not None, "api_secret is required with Validator 1.1 and later."
 
         assert isinstance(watchpoint_name, str), "watchpoint_name must be a string"
 
