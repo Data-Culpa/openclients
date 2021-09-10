@@ -110,6 +110,8 @@ class DataCulpaValidator:
 
         assert isinstance(watchpoint_name, str), "watchpoint_name must be a string"
 
+        self.api_access_token = None
+
         self.watchpoint_name        = watchpoint_name
         self.watchpoint_environment = watchpoint_environment
         self.watchpoint_stage       = watchpoint_stage
@@ -138,13 +140,16 @@ class DataCulpaValidator:
 
         self._pipeline_id = None
 
-    @classmethod
-    def GetWatchpointVariations(cls, protocol, host, port, watchpoint_name):
+    def GetWatchpointVariations(self,
+                                protocol,
+                                host,
+                                port,
+                                watchpoint_name):
 
         pName = base64.urlsafe_b64encode(watchpoint_name.encode('utf-8')).decode('utf-8')
         url = "%s://%s:%s/%s" % (protocol, host, port, "data/metadata/watchpoint-variations/%s" % pName)
 
-        r = DataCulpaValidator.GET(url)
+        r = self.GET(url)
         
         try:
             jr = DataCulpaValidator._parseJson(url, r.content)
@@ -155,10 +160,9 @@ class DataCulpaValidator:
         
         return jr
 
-    @classmethod     
-    def GET(cls, url, headers=None):
+    def GET(self, url, headers=None):
         if headers is None:
-            headers = DataCulpaValidator._json_headers()
+            headers = self._json_headers()
 
         try:
             r = requests.get(url=url, headers=headers)
@@ -218,11 +222,10 @@ class DataCulpaValidator:
             raise DataCulpaServerResponseParseError(url, js_str)
         return jr
 
-    @classmethod
-    def _json_headers(cls):
+    def _json_headers(self):
         headers = {'Content-type': 'application/json',
                    'Accept': 'text/plain',
-                   
+                   'Authorization': 'access_token %s' % self.api_access_token
                    }
         return headers
 
@@ -443,6 +446,10 @@ class DataCulpaValidator:
         assert False, "Unexpected type for timeshift - should an int/float of seconds or a datetime, but got a %s" % type(ts)
         return 0
 
+    def _login_if_needed(self):
+        if self.api_access_token is None:
+            self.login()
+        return
 
     def _open_queue(self):
         j = { 
@@ -453,6 +460,7 @@ class DataCulpaValidator:
                 'timeshift': self._calc_timeshift_seconds()
         }
 
+        self._login_if_needed()
         rs_str = json.dumps(j, cls=json.JSONEncoder, default=str)
         post_url = self._get_base_url("queue/open")
         
@@ -536,4 +544,22 @@ class DataCulpaValidator:
         r = self.GET(url)
         jr = self._parseJson(url, r.content)
         return jr
+
+    def login(self):
+        assert self.api_access_id is not None, "need to pass api_access_id and api_secret when creating DataCulpaValidator object"
+        assert self.api_secret is not None,    "need to pass api_access_id and api_secret when creating DataCulpaValidator object"
+
+        login_url = self._get_base_url("auth/login")
+
+        p = { "api_key": self.api_access_id, "secret": self.api_secret }
+        js = json.dumps(p)
+        # need to catch DataCulpaBadServerCodeError and look at 401 here...
+        r = self.POST(login_url, js)
+        jr = self._parseJson(login_url, r.content)
+        self.api_access_token = jr.get('access_token')
+        assert self.api_access_token is not None
+        return True
+
+    def test_login(self):
+        test_url = self._get_base_url("auth/test-login")
 

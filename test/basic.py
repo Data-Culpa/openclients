@@ -50,15 +50,24 @@ print(dataculpa.__file__)
 DC_HOST = "192.168.1.65"
 DC_PORT = 7778
 
+API_KEY = os.environ.get("DATACULPA_API_KEY")
+API_SECRET = os.environ.get("DATACULPA_API_SECRET")
+
 WATCHPOINT_NAME = "openclients-test"
 
 def getWatchpointNames():
-    jr = DataCulpaValidator.GetWatchpointVariations(
-            DataCulpaValidator.HTTP,
-            DC_HOST,
-            DC_PORT,
-            WATCHPOINT_NAME)
-    #print("WATCHPOINT NAMES:", jr)
+    dc = DataCulpaValidator(WATCHPOINT_NAME,
+                            protocol=DataCulpaValidator.HTTP,
+                            dc_host=DC_HOST, 
+                            dc_port=DC_PORT,
+                            api_access_id=API_KEY,
+                            api_secret=API_SECRET)
+
+    jr = dc.GetWatchpointVariations(DataCulpaValidator.HTTP,
+                                    DC_HOST,
+                                    DC_PORT,
+                                    WATCHPOINT_NAME)
+
     if jr is None:
         jr = []
     return jr
@@ -93,6 +102,8 @@ def main():
                             protocol=DataCulpaValidator.HTTP,
                             dc_host=DC_HOST, 
                             dc_port=DC_PORT,
+                            api_access_id=API_KEY,
+                            api_secret=API_SECRET,
                             timeshift=now)
 
     rc = dc.test_connection()
@@ -163,7 +174,9 @@ test4,,today,3040
                             watchpoint_environment=wp_env,
                             protocol=DataCulpaValidator.HTTP,
                             dc_host=DC_HOST, 
-                            dc_port=DC_PORT)
+                            dc_port=DC_PORT,
+                            api_access_id=API_KEY,
+                            api_secret=API_SECRET)
 
     rc = dc.test_connection()
     print("TEST CONNECTION:", rc)
@@ -190,7 +203,9 @@ test4,,today,3040
                                 watchpoint_environment=wp_env,
                                 protocol=DataCulpaValidator.HTTP,
                                 dc_host="failed-host", 
-                                dc_port=1234)
+                                dc_port=1234,
+                                api_access_id=API_KEY,
+                                api_secret=API_SECRET)
     except DataCulpaConnectionError:
         print("Good, got the connection exception")
     
