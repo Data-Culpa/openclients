@@ -228,7 +228,7 @@ class DataCulpaValidator:
     def _json_headers(self):
         headers = {'Content-type': 'application/json',
                    'Accept': 'text/plain',
-                   'Authorization': 'access_token %s' % self.api_access_token
+                   'Authorization': 'Bearer %s' % self.api_access_token
                    }
         return headers
 
