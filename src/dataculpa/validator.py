@@ -143,14 +143,10 @@ class DataCulpaValidator:
 
         self._pipeline_id = None
 
-    def GetWatchpointVariations(self,
-                                protocol,
-                                host,
-                                port,
-                                watchpoint_name):
+    def getWatchpointVariations(self, watchpoint_name):
 
         pName = base64.urlsafe_b64encode(watchpoint_name.encode('utf-8')).decode('utf-8')
-        url = "%s://%s:%s/%s" % (protocol, host, port, "data/metadata/watchpoint-variations/%s" % pName)
+        url = "%s://%s:%s/%s" % (self.protocol, self.host, self.port, "data/metadata/watchpoint-variations/%s" % pName)
 
         r = self.GET(url)
         
