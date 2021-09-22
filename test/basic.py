@@ -50,8 +50,8 @@ print(dataculpa.__file__)
 DC_HOST = "192.168.1.65"
 DC_PORT = 7778
 
-API_KEY = os.environ.get("DATACULPA_API_KEY")
-API_SECRET = os.environ.get("DATACULPA_API_SECRET")
+API_KEY = os.environ.get("DC_DOCKER_DEFAULT_USER")
+API_SECRET = os.environ.get("DC_DOCKER_DEFAULT_SECRET")
 
 WATCHPOINT_NAME = "openclients-test"
 
