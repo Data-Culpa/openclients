@@ -29,6 +29,7 @@ import os
 import requests
 import logging 
 import traceback
+import sys
 
 from datetime import datetime
 
@@ -108,8 +109,8 @@ class DataCulpaValidator:
                  queue_window=20,
                  timeshift=None):
         
-        assert api_access_id is not None, "api_access_id is required with Validator 1.1 and later."
-        assert api_secret    is not None, "api_secret is required with Validator 1.1 and later."
+        if api_access_id is None or api_secret is None:
+            sys.stderr.write("Warning: api_access_id is required with Validator 1.1 and later.\n")
 
         assert isinstance(watchpoint_name, str), "watchpoint_name must be a string"
 
@@ -223,9 +224,12 @@ class DataCulpaValidator:
 
     def _json_headers(self):
         headers = {'Content-type': 'application/json',
-                   'Accept': 'text/plain',
-                   'Authorization': 'Bearer %s' % self.api_access_token
+                   'Accept': 'text/plain'
                    }
+
+        if self.api_access_token is not None:
+            headers['Authorization'] = 'Bearer %s' % self.api_access_token
+
         return headers
 
     def __del__(self):
@@ -325,11 +329,14 @@ class DataCulpaValidator:
     def _csv_batch_headers(self, file_name):
         headers = {'Content-type': 'text/csv', 
                    'Accept': 'text/plain',
-                   'Authorization': 'Bearer %s' % self.api_access_token,
                    'X-agent': 'dataculpa-library',
                    'X-data-type': 'csv',
                    'X-batch-name': base64.urlsafe_b64encode(file_name.encode('utf-8'))
                    }
+
+        if self.api_access_token is not None:
+            headers['Authorization'] = 'Bearer %s' % self.api_access_token
+
         return headers
 
     def load_csv_file(self, file_name):
