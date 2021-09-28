@@ -325,6 +325,7 @@ class DataCulpaValidator:
     def _csv_batch_headers(self, file_name):
         headers = {'Content-type': 'text/csv', 
                    'Accept': 'text/plain',
+                   'Authorization': 'Bearer %s' % self.api_access_token,
                    'X-agent': 'dataculpa-library',
                    'X-data-type': 'csv',
                    'X-batch-name': base64.urlsafe_b64encode(file_name.encode('utf-8'))
@@ -373,6 +374,24 @@ class DataCulpaValidator:
             logger.error("got some other error: %s" % e)
  
         return False # got an error.
+
+    def queue_check_last_record_time(self):
+        j = { 
+                'pipeline' : self.watchpoint_name,
+                'context'  : self.watchpoint_environment,
+                'stage'    : self.watchpoint_stage,
+                'version'  : self.watchpoint_version
+        }
+
+        self._login_if_needed()
+        rs_str = json.dumps(j, cls=json.JSONEncoder, default=str)
+        post_url = self._get_base_url("queue/timeshift-most-recent")
+
+        r = self.POST(post_url, rs_str)
+
+        jr = self._parseJson(post_url, r.content)
+
+        return jr.get('max_time')
 
     def queue_metadata(self, meta):
         # FIXME: maybe consider queuing locally and then flushing when the user calls commit()?

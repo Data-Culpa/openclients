@@ -63,10 +63,7 @@ def getWatchpointNames():
                             api_access_id=API_KEY,
                             api_secret=API_SECRET)
 
-    jr = dc.GetWatchpointVariations(DataCulpaValidator.HTTP,
-                                    DC_HOST,
-                                    DC_PORT,
-                                    WATCHPOINT_NAME)
+    jr = dc.getWatchpointVariations(WATCHPOINT_NAME)
 
     if jr is None:
         jr = []
