@@ -32,6 +32,7 @@ import traceback
 import sys
 
 from datetime import datetime
+from dateutil.parser import parse as DateUtilParse
 
 HAS_PANDAS = False
 try:
@@ -398,7 +399,15 @@ class DataCulpaValidator:
 
         jr = self._parseJson(post_url, r.content)
 
-        return jr.get('max_time')
+        mt = jr.get('max_time')
+        if mt is not None:
+            try:
+                dt = DateUtilParse(mt)
+            except:
+                traceback.print_exc()
+                return None
+            mt = dt
+        return mt
 
     def queue_metadata(self, meta):
         # FIXME: maybe consider queuing locally and then flushing when the user calls commit()?
