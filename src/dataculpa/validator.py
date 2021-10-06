@@ -32,6 +32,7 @@ import sys
 import traceback
 
 from datetime import datetime
+from dateutil.parser import parse as DateUtilParse
 
 HAS_PANDAS = False
 try:
