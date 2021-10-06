@@ -25,14 +25,13 @@
 
 import base64
 import json
+import logging 
 import os
 import requests
-import logging 
-import traceback
 import sys
+import traceback
 
 from datetime import datetime
-from dateutil.parser import parse as DateUtilParse
 
 HAS_PANDAS = False
 try:
@@ -109,7 +108,7 @@ class DataCulpaValidator:
                  api_secret=None,
                  queue_window=20,
                  timeshift=None):
-        
+
         if api_access_id is None or api_secret is None:
             sys.stderr.write("Warning: api_access_id is required with Validator 1.1 and later.\n")
 
@@ -141,9 +140,16 @@ class DataCulpaValidator:
         self._queue_count = 0
 
         self._timeshift = timeshift
-        self._open_queue()
+
+        if self.watchpoint_name is not None:
+            self._open_queue()
 
         self._pipeline_id = None
+
+    def setWatchpointName(self, watchpoint_name):
+        assert self.watchpoint_name is None
+        self.watchpoint_name = watchpoint_name
+        return
 
     def getWatchpointVariations(self, watchpoint_name):
 
@@ -337,7 +343,7 @@ class DataCulpaValidator:
 
         if self.api_access_token is not None:
             headers['Authorization'] = 'Bearer %s' % self.api_access_token
-
+        
         return headers
 
     def load_csv_file(self, file_name):
