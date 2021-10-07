@@ -25,12 +25,14 @@
 
 import base64
 import json
+import logging 
 import os
 import requests
-import logging 
+import sys
 import traceback
 
 from datetime import datetime
+from dateutil.parser import parse as DateUtilParse
 
 HAS_PANDAS = False
 try:
@@ -108,7 +110,12 @@ class DataCulpaValidator:
                  queue_window=20,
                  timeshift=None):
 
+        if api_access_id is None or api_secret is None:
+            sys.stderr.write("Warning: api_access_id is required with Validator 1.1 and later.\n")
+
         assert isinstance(watchpoint_name, str), "watchpoint_name must be a string"
+
+        self.api_access_token = None
 
         self.watchpoint_name        = watchpoint_name
         self.watchpoint_environment = watchpoint_environment
@@ -134,17 +141,23 @@ class DataCulpaValidator:
         self._queue_count = 0
 
         self._timeshift = timeshift
-        self._open_queue()
+
+        if self.watchpoint_name is not None:
+            self._open_queue()
 
         self._pipeline_id = None
 
-    @classmethod
-    def GetWatchpointVariations(cls, protocol, host, port, watchpoint_name):
+    def setWatchpointName(self, watchpoint_name):
+        assert self.watchpoint_name is None
+        self.watchpoint_name = watchpoint_name
+        return
+
+    def getWatchpointVariations(self, watchpoint_name):
 
         pName = base64.urlsafe_b64encode(watchpoint_name.encode('utf-8')).decode('utf-8')
-        url = "%s://%s:%s/%s" % (protocol, host, port, "data/metadata/watchpoint-variations/%s" % pName)
+        url = "%s://%s:%s/%s" % (self.protocol, self.host, self.port, "data/metadata/watchpoint-variations/%s" % pName)
 
-        r = DataCulpaValidator.GET(url)
+        r = self.GET(url)
         
         try:
             jr = DataCulpaValidator._parseJson(url, r.content)
@@ -155,10 +168,9 @@ class DataCulpaValidator:
         
         return jr
 
-    @classmethod     
-    def GET(cls, url, headers=None):
+    def GET(self, url, headers=None):
         if headers is None:
-            headers = DataCulpaValidator._json_headers()
+            headers = self._json_headers()
 
         try:
             r = requests.get(url=url, headers=headers)
@@ -218,12 +230,14 @@ class DataCulpaValidator:
             raise DataCulpaServerResponseParseError(url, js_str)
         return jr
 
-    @classmethod
-    def _json_headers(cls):
+    def _json_headers(self):
         headers = {'Content-type': 'application/json',
-                   'Accept': 'text/plain',
-                   
+                   'Accept': 'text/plain'
                    }
+
+        if self.api_access_token is not None:
+            headers['Authorization'] = 'Bearer %s' % self.api_access_token
+
         return headers
 
     def __del__(self):
@@ -327,6 +341,10 @@ class DataCulpaValidator:
                    'X-data-type': 'csv',
                    'X-batch-name': base64.urlsafe_b64encode(file_name.encode('utf-8'))
                    }
+
+        if self.api_access_token is not None:
+            headers['Authorization'] = 'Bearer %s' % self.api_access_token
+        
         return headers
 
     def load_csv_file(self, file_name):
@@ -371,6 +389,32 @@ class DataCulpaValidator:
             logger.error("got some other error: %s" % e)
  
         return False # got an error.
+
+    def queue_check_last_record_time(self):
+        j = { 
+                'pipeline' : self.watchpoint_name,
+                'context'  : self.watchpoint_environment,
+                'stage'    : self.watchpoint_stage,
+                'version'  : self.watchpoint_version
+        }
+
+        self._login_if_needed()
+        rs_str = json.dumps(j, cls=json.JSONEncoder, default=str)
+        post_url = self._get_base_url("queue/timeshift-most-recent")
+
+        r = self.POST(post_url, rs_str)
+
+        jr = self._parseJson(post_url, r.content)
+
+        mt = jr.get('max_time')
+        if mt is not None:
+            try:
+                dt = DateUtilParse(mt)
+            except:
+                traceback.print_exc()
+                return None
+            mt = dt
+        return mt
 
     def queue_metadata(self, meta):
         # FIXME: maybe consider queuing locally and then flushing when the user calls commit()?
@@ -443,6 +487,10 @@ class DataCulpaValidator:
         assert False, "Unexpected type for timeshift - should an int/float of seconds or a datetime, but got a %s" % type(ts)
         return 0
 
+    def _login_if_needed(self):
+        if self.api_access_token is None:
+            self.login()
+        return
 
     def _open_queue(self):
         j = { 
@@ -453,6 +501,7 @@ class DataCulpaValidator:
                 'timeshift': self._calc_timeshift_seconds()
         }
 
+        self._login_if_needed()
         rs_str = json.dumps(j, cls=json.JSONEncoder, default=str)
         post_url = self._get_base_url("queue/open")
         
@@ -536,4 +585,22 @@ class DataCulpaValidator:
         r = self.GET(url)
         jr = self._parseJson(url, r.content)
         return jr
+
+    def login(self):
+        assert self.api_access_id is not None, "need to pass api_access_id and api_secret when creating DataCulpaValidator object"
+        assert self.api_secret is not None,    "need to pass api_access_id and api_secret when creating DataCulpaValidator object"
+
+        login_url = self._get_base_url("auth/login")
+
+        p = { "api_key": self.api_access_id, "secret": self.api_secret }
+        js = json.dumps(p)
+        # need to catch DataCulpaBadServerCodeError and look at 401 here...
+        r = self.POST(login_url, js)
+        jr = self._parseJson(login_url, r.content)
+        self.api_access_token = jr.get('access_token')
+        assert self.api_access_token is not None
+        return True
+
+    def test_login(self):
+        test_url = self._get_base_url("auth/test-login")
 
