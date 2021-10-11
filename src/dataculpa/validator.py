@@ -29,6 +29,7 @@ import logging
 import os
 import requests
 import sys
+import time
 import traceback
 
 from datetime import datetime
@@ -113,8 +114,6 @@ class DataCulpaValidator:
         if api_access_id is None or api_secret is None:
             sys.stderr.write("Warning: api_access_id is required with Validator 1.1 and later.\n")
 
-        assert isinstance(watchpoint_name, str), "watchpoint_name must be a string"
-
         self.api_access_token = None
 
         self.watchpoint_name        = watchpoint_name
@@ -153,6 +152,7 @@ class DataCulpaValidator:
         return
 
     def getWatchpointVariations(self, watchpoint_name):
+        self._login_if_needed()
 
         pName = base64.urlsafe_b64encode(watchpoint_name.encode('utf-8')).decode('utf-8')
         url = "%s://%s:%s/%s" % (self.protocol, self.host, self.port, "data/metadata/watchpoint-variations/%s" % pName)
@@ -260,6 +260,7 @@ class DataCulpaValidator:
         return 0
 
     def _whack_str(self, s):
+        s = str(s)
         return base64.urlsafe_b64encode(s.encode('utf-8')).decode('utf-8')
 
     def _build_pipeline_url_suffix(self):
@@ -541,7 +542,8 @@ class DataCulpaValidator:
 
         url = self._get_base_url("queue/fastqueue/%s" % queue_id)
         params = { "field_name": file_path, "field_name": field_name }
-        r = self.POST(url, params)
+        rs_str = json.dumps(params, cls=json.JSONEncoder, default=str)
+        r = self.POST(url, rs_str)
         jr = self._parseJson(url, r.content)
         return (queue_id, jr)
 
@@ -604,3 +606,111 @@ class DataCulpaValidator:
     def test_login(self):
         test_url = self._get_base_url("auth/test-login")
 
+    def watchpoint_log_message(self, msg):
+        return self.watchpoint_lograw({'message': msg})
+
+    def watchpoint_log_query(self, query_target=None, query_string=None, number_results=None, proc_seconds=None, extras=None):
+        d = {}
+        assert isinstance(extras, dict)
+        if extras is not None:
+            d = extras.copy()
+
+        if query_target is not None:
+            d['query_target'] = query_target
+        if query_string is not None:
+            d['query_string'] = query_string
+        if number_results is not None:
+            d['number_results'] = number_results
+        if proc_seconds is not None:
+            d['proc_seconds'] = proc_seconds
+        return self.watchpoint_lograw(d)
+
+    def watchpoint_lograw(self, data_dict):
+        # this is a tool for logging query information, results, or anything else you want your connector
+        # to expose to the UI of Validator.
+        # recommended fields: query_target, query_string, query_time, number_results
+        pipeline_id = self._get_pipeline_id()
+        if pipeline_id is None:
+            pipeline_id = -1
+        url = self._get_base_url("data/watchpoint-log/%s" % pipeline_id)
+        params = { "data": data_dict }
+        rs_str = json.dumps(params, cls=json.JSONEncoder, default=str)
+        r = self.POST(url, rs_str)
+        jr = self._parseJson(url, r.content)
+        return jr
+
+    def drain_logs(self, llc):
+        assert isinstance(llc, LocalLogCache)
+
+        # Note: not thread safe.
+
+        pipeline_id = self._get_pipeline_id()
+        if pipeline_id is None:
+            pipeline_id = -1
+
+        theList = llc.log_list()
+        if len(theList) == 0:
+            return
+
+        url = self._get_base_url("data/watchpoint-log-list/%s" % pipeline_id)
+        params = {"theList": theList }
+        rs_str = json.dumps(params, cls=json.JSONEncoder, default=str)
+        r = self.POST(url, rs_str)
+        jr = self._parseJson(url, r.content)
+
+        # if we got here, must be ok.
+        # empty the llc.
+        llc.reset_list()
+
+        return jr
+
+        
+
+class LocalLogCache:
+    def __init__(self, logger_object):
+        self.logs = []
+        self._start_time = time.time()
+        self._logger = logger_object # OK to be None
+    
+    def __del__(self):
+        pass # destructor might want to flush things, etc.
+
+    def log_list(self):
+        return self.logs
+
+    def reset_list(self):
+        self.logs = []
+        return
+
+    def _log(self, sev, message, dd=None):
+        tn = time.time()
+        dt = tn - self._start_time
+        if dd is None:
+            dd = {}
+        
+        dd['dc_time_offset'] = dt
+        dd['dc_time_now'] = tn
+        dd['dc_message'] = message
+        dd['dc_sev'] = sev
+        self.logs.append(dd)
+
+
+    def info(self, message):
+        if self._logger is not None:
+            self._logger.info(message)
+        return self._log('info', message)
+
+    def warning(self, message):
+        if self._logger is not None:
+            self._logger.warning(message)
+        return self._log('warning', message)
+
+    def error(self, message):
+        if self._logger is not None:
+            self._logger.error(message)
+        return self._log('error', message)
+
+#    def log_sql(self, table, query):
+#        # do something.
+#        return self._log('info', 'sql statement', { 'table': table, 'query': query })
+        
