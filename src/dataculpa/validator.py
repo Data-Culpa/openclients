@@ -710,7 +710,7 @@ class LocalLogCache:
             self._logger.error(message)
         return self._log('error', message)
 
-#    def log_sql(self, table, query):
-#        # do something.
-#        return self._log('info', 'sql statement', { 'table': table, 'query': query })
+    def log_sql(self, table, query):
+        # do something.
+        return self._log('info', '%s: %s' % (table, stmt), { 'table': table, 'stmt': stmt })
         
