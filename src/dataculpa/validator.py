@@ -168,12 +168,12 @@ class DataCulpaValidator:
         
         return jr
 
-    def GET(self, url, headers=None):
+    def GET(self, url, headers=None, stream=False):
         if headers is None:
             headers = self._json_headers()
 
         try:
-            r = requests.get(url=url, headers=headers)
+            r = requests.get(url=url, headers=headers, stream=stream)
             if r.status_code != 200:
                 raise DataCulpaBadServerCodeError(r.status_code, "url was %s" % url)
             return r
@@ -348,11 +348,27 @@ class DataCulpaValidator:
         
         return headers
 
-    def load_csv_file(self, file_name):
+    def load_parquet(self, file_name):
+        headers = {'Content-type': 'application/octet-stream', 
+                   'Accept': 'text/plain',
+                   'X-agent': 'dataculpa-library',
+                   'X-data-type': 'parquet',
+                   'X-batch-name': base64.urlsafe_b64encode(file_name.encode('utf-8'))
+                   }
+
+        if self.api_access_token is not None:
+            headers['Authorization'] = 'Bearer %s' % self.api_access_token
+        
+        return self.load_csv_file(file_name, headers=headers)
+
+    def load_csv_file(self, file_name, headers=None):
         """
         Send the raw file contents to Validator and commit the queue.
         """
         post_url = self._get_base_url("batch-validate/%s" % self._queue_id)
+
+        if headers is None:
+            headers = self._csv_batch_headers(file_name)
 
         timeout = 10
         # if the file is big, allow more time... need something smarter here.
@@ -367,7 +383,7 @@ class DataCulpaValidator:
             with open(file_name, "rb") as csv_file:
                 r = requests.post(url=post_url, 
                                   files={file_name: csv_file}, 
-                                  headers=self._csv_batch_headers(file_name),
+                                  headers=headers,
                                   timeout=timeout) # variable
                 #r.raise_for_status() # turn HTTP errors into exceptions -- 
             self._queue_buffer = []
