@@ -109,18 +109,19 @@ class DataCulpaValidator:
                  api_access_id=None, 
                  api_secret=None,
                  queue_window=20,
-                 timeshift=None):
+                 timeshift=None,
+                 use_fastcols=False):
 
         if api_access_id is None or api_secret is None:
             sys.stderr.write("Warning: api_access_id is required with Validator 1.1 and later.\n")
 
         self.api_access_token = None
-
         self.watchpoint_name        = watchpoint_name
         self.watchpoint_environment = watchpoint_environment
         self.watchpoint_stage       = watchpoint_stage
         self.watchpoint_version     = watchpoint_version
 
+        self._fastcols              = use_fastcols
         self.protocol = protocol
         #if self.protocol == self.HTTP:
         #    assert dc_host == "localhost", "HTTP is only supported for localhost"
@@ -515,7 +516,8 @@ class DataCulpaValidator:
                 'context'  : self.watchpoint_environment,
                 'stage'    : self.watchpoint_stage,
                 'version'  : self.watchpoint_version,
-                'timeshift': self._calc_timeshift_seconds()
+                'timeshift': self._calc_timeshift_seconds(),
+                'fastcols':  self._fastcols
         }
 
         self._login_if_needed()
