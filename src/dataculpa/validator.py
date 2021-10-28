@@ -99,7 +99,7 @@ class DataCulpaValidator:
     # FIXME: http, message queues, etc.
 
     def __init__(self, 
-                 watchpoint_name, 
+                 watchpoint_name=None, 
                  watchpoint_environment="default",
                  watchpoint_stage="default",
                  watchpoint_version="default",
@@ -109,18 +109,21 @@ class DataCulpaValidator:
                  api_access_id=None, 
                  api_secret=None,
                  queue_window=20,
-                 timeshift=None):
+                 timeshift=None,
+                 use_fastcols=False,
+                 watchpoint_id=None):
 
         if api_access_id is None or api_secret is None:
             sys.stderr.write("Warning: api_access_id is required with Validator 1.1 and later.\n")
 
         self.api_access_token = None
-
         self.watchpoint_name        = watchpoint_name
         self.watchpoint_environment = watchpoint_environment
         self.watchpoint_stage       = watchpoint_stage
         self.watchpoint_version     = watchpoint_version
+        self.explicit_watchpoint_id = watchpoint_id
 
+        self._fastcols              = use_fastcols
         self.protocol = protocol
         #if self.protocol == self.HTTP:
         #    assert dc_host == "localhost", "HTTP is only supported for localhost"
@@ -168,12 +171,12 @@ class DataCulpaValidator:
         
         return jr
 
-    def GET(self, url, headers=None):
+    def GET(self, url, headers=None, stream=False):
         if headers is None:
             headers = self._json_headers()
 
         try:
-            r = requests.get(url=url, headers=headers)
+            r = requests.get(url=url, headers=headers, stream=stream)
             if r.status_code != 200:
                 raise DataCulpaBadServerCodeError(r.status_code, "url was %s" % url)
             return r
@@ -348,11 +351,27 @@ class DataCulpaValidator:
         
         return headers
 
-    def load_csv_file(self, file_name):
+    def load_parquet(self, file_name):
+        headers = {'Content-type': 'application/octet-stream', 
+                   'Accept': 'text/plain',
+                   'X-agent': 'dataculpa-library',
+                   'X-data-type': 'parquet',
+                   'X-batch-name': base64.urlsafe_b64encode(file_name.encode('utf-8'))
+                   }
+
+        if self.api_access_token is not None:
+            headers['Authorization'] = 'Bearer %s' % self.api_access_token
+        
+        return self.load_csv_file(file_name, headers=headers)
+
+    def load_csv_file(self, file_name, headers=None):
         """
         Send the raw file contents to Validator and commit the queue.
         """
         post_url = self._get_base_url("batch-validate/%s" % self._queue_id)
+
+        if headers is None:
+            headers = self._csv_batch_headers(file_name)
 
         timeout = 10
         # if the file is big, allow more time... need something smarter here.
@@ -367,7 +386,7 @@ class DataCulpaValidator:
             with open(file_name, "rb") as csv_file:
                 r = requests.post(url=post_url, 
                                   files={file_name: csv_file}, 
-                                  headers=self._csv_batch_headers(file_name),
+                                  headers=headers,
                                   timeout=timeout) # variable
                 #r.raise_for_status() # turn HTTP errors into exceptions -- 
             self._queue_buffer = []
@@ -494,14 +513,21 @@ class DataCulpaValidator:
         return
 
     def _open_queue(self):
-        j = { 
-                'pipeline' : self.watchpoint_name,
-                'context'  : self.watchpoint_environment,
-                'stage'    : self.watchpoint_stage,
-                'version'  : self.watchpoint_version,
-                'timeshift': self._calc_timeshift_seconds()
-        }
-
+        if self.explicit_watchpoint_id:
+            j = { 'pipeline_id': self.explicit_watchpoint_id,
+                  'fastcols':    self._fastcols
+            }
+        else:
+            j = { 
+                    'pipeline' : self.watchpoint_name,
+                    'context'  : self.watchpoint_environment,
+                    'stage'    : self.watchpoint_stage,
+                    'version'  : self.watchpoint_version,
+                    'timeshift': self._calc_timeshift_seconds(),
+                    'fastcols':  self._fastcols
+            }
+        # endif
+        
         self._login_if_needed()
         rs_str = json.dumps(j, cls=json.JSONEncoder, default=str)
         post_url = self._get_base_url("queue/open")
