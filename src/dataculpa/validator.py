@@ -99,7 +99,7 @@ class DataCulpaValidator:
     # FIXME: http, message queues, etc.
 
     def __init__(self, 
-                 watchpoint_name, 
+                 watchpoint_name=None, 
                  watchpoint_environment="default",
                  watchpoint_stage="default",
                  watchpoint_version="default",
@@ -110,7 +110,8 @@ class DataCulpaValidator:
                  api_secret=None,
                  queue_window=20,
                  timeshift=None,
-                 use_fastcols=False):
+                 use_fastcols=False,
+                 watchpoint_id=None):
 
         if api_access_id is None or api_secret is None:
             sys.stderr.write("Warning: api_access_id is required with Validator 1.1 and later.\n")
@@ -120,6 +121,7 @@ class DataCulpaValidator:
         self.watchpoint_environment = watchpoint_environment
         self.watchpoint_stage       = watchpoint_stage
         self.watchpoint_version     = watchpoint_version
+        self.explicit_watchpoint_id = watchpoint_id
 
         self._fastcols              = use_fastcols
         self.protocol = protocol
@@ -511,15 +513,21 @@ class DataCulpaValidator:
         return
 
     def _open_queue(self):
-        j = { 
-                'pipeline' : self.watchpoint_name,
-                'context'  : self.watchpoint_environment,
-                'stage'    : self.watchpoint_stage,
-                'version'  : self.watchpoint_version,
-                'timeshift': self._calc_timeshift_seconds(),
-                'fastcols':  self._fastcols
-        }
-
+        if self.explicit_watchpoint_id:
+            j = { 'pipeline_id': self.explicit_watchpoint_id,
+                  'fastcols':    self._fastcols
+            }
+        else:
+            j = { 
+                    'pipeline' : self.watchpoint_name,
+                    'context'  : self.watchpoint_environment,
+                    'stage'    : self.watchpoint_stage,
+                    'version'  : self.watchpoint_version,
+                    'timeshift': self._calc_timeshift_seconds(),
+                    'fastcols':  self._fastcols
+            }
+        # endif
+        
         self._login_if_needed()
         rs_str = json.dumps(j, cls=json.JSONEncoder, default=str)
         post_url = self._get_base_url("queue/open")
