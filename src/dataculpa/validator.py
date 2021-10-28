@@ -134,6 +134,7 @@ class DataCulpaValidator:
         self.port = dc_port
         self.api_access_id = api_access_id
         self.api_secret = api_secret
+        self.local_only = False
         self.queue_window = queue_window
         self._queue_buffer = []
         self._queue_ready = False
@@ -615,6 +616,8 @@ class DataCulpaValidator:
         return jr
 
     def login(self):
+        if self.local_only:
+            return
         assert self.api_access_id is not None, "need to pass api_access_id and api_secret when creating DataCulpaValidator object"
         assert self.api_secret is not None,    "need to pass api_access_id and api_secret when creating DataCulpaValidator object"
 
