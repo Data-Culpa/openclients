@@ -33,6 +33,9 @@ import sys
 import time
 import traceback
 
+#from requests.adapters import HTTPAdapter
+#from requests.packages.urllib3.util.retry import Retry # pylint: disable=import-error
+
 from datetime import datetime
 from dateutil.parser import parse as DateUtilParse
 
@@ -61,6 +64,9 @@ f_handler.setFormatter(f_format)
 # Add handlers to the logger
 logger.addHandler(c_handler)
 logger.addHandler(f_handler)
+
+#http = requests.Session()
+# Wasn't able to get the retry stuff to work well
 
 class DataCulpaConnectionError(Exception):
     def __init__(self, url, message):
@@ -178,7 +184,21 @@ class DataCulpaValidator:
             headers = self._json_headers()
 
         try:
-            r = requests.get(url=url, headers=headers, stream=stream)
+            retry_count = 0
+            while True:
+                try:
+                    r = requests.get(url=url, 
+                                     headers=headers, 
+                                     timeout=1 + retry_count, 
+                                     stream=stream)
+                    break
+                except requests.exceptions.Timeout:
+                    retry_count += 1
+                    if retry_count > 10:
+                        raise
+                    print("%s: retry_count = %s" % (url, retry_count))
+
+
             if r.status_code != 200:
                 raise DataCulpaBadServerCodeError(r.status_code, "url was %s" % url)
             return r
@@ -199,10 +219,21 @@ class DataCulpaValidator:
             headers = self._json_headers()
 
         try:
-            r = requests.post(url=url,
-                              data=data,
-                              timeout=timeout,
-                              headers=headers)
+            retry_count = 0
+            while True:
+                try:
+                    #print("Trying %s" % url)
+                    r = requests.post(url=url,
+                                  data=data, timeout=1 + retry_count,
+                                  headers=headers)
+                    #print("got it ok")
+                    break
+                except requests.exceptions.Timeout:
+                    retry_count += 1
+                    if retry_count > 10:
+                        raise
+                    print("%s: retry_count = %s" % (url, retry_count))
+
             if r.status_code != 200:
                 new_text = r.text
                 # Chop off the annoying HTML nonsense if it's there..
