@@ -28,9 +28,13 @@ import json
 import logging 
 import os
 import requests
+import socket
 import sys
 import time
 import traceback
+
+#from requests.adapters import HTTPAdapter
+#from requests.packages.urllib3.util.retry import Retry # pylint: disable=import-error
 
 from datetime import datetime
 from dateutil.parser import parse as DateUtilParse
@@ -60,6 +64,9 @@ f_handler.setFormatter(f_format)
 # Add handlers to the logger
 logger.addHandler(c_handler)
 logger.addHandler(f_handler)
+
+#http = requests.Session()
+# Wasn't able to get the retry stuff to work well
 
 class DataCulpaConnectionError(Exception):
     def __init__(self, url, message):
@@ -134,6 +141,7 @@ class DataCulpaValidator:
         self.port = dc_port
         self.api_access_id = api_access_id
         self.api_secret = api_secret
+        self.local_only = False
         self.queue_window = queue_window
         self._queue_buffer = []
         self._queue_ready = False
@@ -176,7 +184,21 @@ class DataCulpaValidator:
             headers = self._json_headers()
 
         try:
-            r = requests.get(url=url, headers=headers, stream=stream)
+            retry_count = 0
+            while True:
+                try:
+                    r = requests.get(url=url, 
+                                     headers=headers, 
+                                     timeout=1 + retry_count, 
+                                     stream=stream)
+                    break
+                except requests.exceptions.Timeout:
+                    retry_count += 1
+                    if retry_count > 10:
+                        raise
+                    print("%s: retry_count = %s" % (url, retry_count))
+
+
             if r.status_code != 200:
                 raise DataCulpaBadServerCodeError(r.status_code, "url was %s" % url)
             return r
@@ -197,10 +219,21 @@ class DataCulpaValidator:
             headers = self._json_headers()
 
         try:
-            r = requests.post(url=url,
-                              data=data,
-                              timeout=timeout,
-                              headers=headers)
+            retry_count = 0
+            while True:
+                try:
+                    #print("Trying %s" % url)
+                    r = requests.post(url=url,
+                                  data=data, timeout=1 + retry_count,
+                                  headers=headers)
+                    #print("got it ok")
+                    break
+                except requests.exceptions.Timeout:
+                    retry_count += 1
+                    if retry_count > 10:
+                        raise
+                    print("%s: retry_count = %s" % (url, retry_count))
+
             if r.status_code != 200:
                 new_text = r.text
                 # Chop off the annoying HTML nonsense if it's there..
@@ -615,6 +648,8 @@ class DataCulpaValidator:
         return jr
 
     def login(self):
+        if self.local_only:
+            return
         assert self.api_access_id is not None, "need to pass api_access_id and api_secret when creating DataCulpaValidator object"
         assert self.api_secret is not None,    "need to pass api_access_id and api_secret when creating DataCulpaValidator object"
 
@@ -718,7 +753,9 @@ class LocalLogCache:
         dd['dc_time_now'] = tn
         dd['dc_message'] = message
         dd['dc_sev'] = sev
-        self.logs.append(dd)
+        dd['dc_host'] = socket.gethostname()
+        self.logs.insert(0, dd)
+        return
 
 
     def info(self, message):
