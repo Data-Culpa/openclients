@@ -28,6 +28,7 @@ import json
 import logging 
 import os
 import requests
+import socket
 import sys
 import time
 import traceback
@@ -721,7 +722,9 @@ class LocalLogCache:
         dd['dc_time_now'] = tn
         dd['dc_message'] = message
         dd['dc_sev'] = sev
-        self.logs.append(dd)
+        dd['dc_host'] = socket.gethostname()
+        self.logs.insert(0, dd)
+        return
 
 
     def info(self, message):
