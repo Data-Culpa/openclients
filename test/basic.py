@@ -209,5 +209,45 @@ test4,,today,3040
 
     return
 
+
+
+def login_delay_test():
+    dc = DataCulpaValidator("qa-delay-test",
+                                watchpoint_version=1,
+                                watchpoint_environment="qa",
+                                protocol=DataCulpaValidator.HTTP,
+                                dc_host="192.168.1.65", 
+                                dc_port=DC_PORT,
+                                api_access_id=API_KEY,
+                                api_secret=API_SECRET)
+    
+    timeout = 1800 
+
+    dc.load_csv_file("/tmp/test.csv")
+
+    print(dc.api_access_token)
+    print("--")
+
+    #if dc.api_access_token is not None:
+        #dc.api_access_token = "corrupted-token-from-unit-test"
+
+    while timeout < 7200:
+        print(time.ctime(), ": timeout = ", timeout) 
+        time.sleep(timeout)
+        try:
+            dc.queue_check_last_record_time()
+            worked = True
+        except:
+            worked = False
+
+        print("worked =", worked)
+        if worked:
+            timeout *= 2
+        else:
+            break
+    
+    print("----done---")
+
 if __name__ == "__main__":
     main()
+    login_delay_test()
