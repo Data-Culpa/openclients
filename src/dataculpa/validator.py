@@ -32,6 +32,7 @@ import socket
 import sys
 import time
 import traceback
+import uuid
 
 #from requests.adapters import HTTPAdapter
 #from requests.packages.urllib3.util.retry import Retry # pylint: disable=import-error
@@ -152,11 +153,13 @@ class DataCulpaValidator:
 
         self._timeshift = timeshift
 
+        self._pipeline_id = None
+        self._cached_hostname = None
+        
         if self.watchpoint_name is not None:
             self._open_queue()
 
-        self._pipeline_id = None
-
+        
     def setWatchpointName(self, watchpoint_name):
         assert self.watchpoint_name is None
         self.watchpoint_name = watchpoint_name
@@ -178,19 +181,37 @@ class DataCulpaValidator:
             raise DataCulpaServerResponseParseError
         
         return jr
+    
+    def _retry_on_error_code(self, rc):
+        return rc >= 400 and rc < 500
 
     def GET(self, url, headers=None, stream=False):
-        if headers is None:
-            headers = self._json_headers()
-
         try:
             retry_count = 0
             while True:
+                # The headers have to be in this loop so that we re-gen on
+                # failure if the token has expired, etc.
+                if headers is None:
+                    _headers = self._json_headers()
+                else:
+                    _headers = headers
+
                 try:
-                    r = requests.get(url=url, 
-                                     headers=headers, 
+                    tag_suffix = self._tag_from_headers(_headers)
+                    r = requests.get(url=url + tag_suffix, 
+                                     headers=_headers, 
                                      timeout=1 + retry_count, 
                                      stream=stream)
+                    if self._retry_on_error_code(r.status_code) and retry_count < 2:
+                        self.api_access_token = None
+                        try:
+                            self.login()
+                            retry_count += 1
+                            continue # go to while True
+                        except:
+                            # tried to login again but guess it didn't stick.
+                            pass
+                    
                     break
                 except requests.exceptions.Timeout:
                     retry_count += 1
@@ -214,25 +235,49 @@ class DataCulpaValidator:
             raise DataCulpaConnectionError(url, "unexpected error: %s" % e)
         return None
 
-    def POST(self, url, data, timeout=10.0, headers=None):
-        if headers is None:
-            headers = self._json_headers()
-
+    def POST(self, url, data, timeout=10.0, headers=None, is_login=False):
+        
         try:
             retry_count = 0
             while True:
+                # The headers have to be in this loop so that we re-gen on
+                # failure if the token has expired, etc.
+                if headers is None:
+                    _headers = self._json_headers()
+                else:
+                    _headers = headers
+
                 try:
-                    #print("Trying %s" % url)
-                    r = requests.post(url=url,
+                    #print("%s: Trying" % url)
+                    tag_suffix = self._tag_from_headers(_headers)
+
+                    r = requests.post(url=url + tag_suffix,
                                   data=data, timeout=1 + retry_count,
-                                  headers=headers)
-                    #print("got it ok")
+                                  headers=_headers)
+                    
+                    if r.status_code != 200 and not is_login:
+                        #print("%s: not 200" % url)
+                        if self._retry_on_error_code(r.status_code) and retry_count < 2:
+                            #print("%s: going to retry" % url)
+                            self.api_access_token = None
+                            try:
+                                #print("%s: doing the login" % url)
+                                self.login()
+                                #print(self.api_access_token)
+                                retry_count += 1
+                                #print("%s: continue..." % url);
+                                continue # go to while True
+                            except:
+                                # tried to login again but guess it didn't stick.
+                                pass
+                        # endif
+                    
+                    #print("%s: breaking loop" % url);
                     break
                 except requests.exceptions.Timeout:
                     retry_count += 1
                     if retry_count > 10:
                         raise
-                    print("%s: retry_count = %s" % (url, retry_count))
 
             if r.status_code != 200:
                 new_text = r.text
@@ -245,6 +290,7 @@ class DataCulpaValidator:
                         if p_pos > 0:
                             new_text = new_text[:p_pos]
                 raise DataCulpaBadServerCodeError(r.status_code, "url was %s; text = %s" % (r.url, new_text))
+
             return r
         except requests.exceptions.Timeout:
             raise DataCulpaConnectionError(url, "timed out")
@@ -267,14 +313,30 @@ class DataCulpaValidator:
         return jr
 
     def _json_headers(self):
+        if self._cached_hostname is None:
+            try:
+                self._cached_hostname = socket.gethostname()
+            except:
+                pass
+            if self._cached_hostname is None:
+                self._cached_hostname = "gethostname_failed"
+
         headers = {'Content-type': 'application/json',
-                   'Accept': 'text/plain'
+                   'Accept': 'text/plain',
+                   'X-request-id': str(uuid.uuid1()),
+                   'X-hostname': self._cached_hostname
                    }
 
         if self.api_access_token is not None:
             headers['Authorization'] = 'Bearer %s' % self.api_access_token
 
         return headers
+    
+    def _tag_from_headers(self, h):
+        req  = h.get('X-request-id', 'missing')
+        host = h.get('X-hostname', 'missing')
+
+        return "?request_id=%s&request_hostname=%s" % (req, host)
 
     def __del__(self):
         logger.debug("DataCulpaValidator destructor called")
@@ -460,11 +522,16 @@ class DataCulpaValidator:
         jr = self._parseJson(post_url, r.content)
 
         mt = jr.get('max_time')
+        if mt == 0:
+            return None
+
         if mt is not None:
             try:
                 dt = DateUtilParse(mt)
             except:
-                traceback.print_exc()
+                # FIXME: improve this...
+                print("couldn't parse __%s__ [%s]" % (mt, jr))
+                #traceback.print_exc()
                 return None
             mt = dt
         return mt
@@ -658,7 +725,7 @@ class DataCulpaValidator:
         p = { "api_key": self.api_access_id, "secret": self.api_secret }
         js = json.dumps(p)
         # need to catch DataCulpaBadServerCodeError and look at 401 here...
-        r = self.POST(login_url, js)
+        r = self.POST(login_url, js, is_login=True)
         jr = self._parseJson(login_url, r.content)
         self.api_access_token = jr.get('access_token')
         assert self.api_access_token is not None
