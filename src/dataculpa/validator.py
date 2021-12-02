@@ -119,7 +119,8 @@ class DataCulpaValidator:
                  queue_window=20,
                  timeshift=None,
                  use_fastcols=False,
-                 watchpoint_id=None):
+                 watchpoint_id=None,
+                 _open_queue=True):
 
         if api_access_id is None or api_secret is None:
             sys.stderr.write("Warning: api_access_id is required with Validator 1.1 and later.\n")
@@ -156,8 +157,9 @@ class DataCulpaValidator:
         self._pipeline_id = None
         self._cached_hostname = None
         
-        if self.watchpoint_name is not None:
-            self._open_queue()
+        if _open_queue:
+            if self.watchpoint_name is not None:
+                self._open_queue()
 
         
     def setWatchpointName(self, watchpoint_name):
