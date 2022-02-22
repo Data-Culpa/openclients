@@ -658,7 +658,7 @@ class DataCulpaValidator:
         jr = self._parseJson(post_url, r.content)
         # FIXME: improve error handling.
 
-        return # (None, 0, 0)
+        return jr # (None, 0, 0)
 
     def queue_fastqueue(self, field_name, file_path):
         """Zero-copy: the file-path is on a shared filesystem with Validator"""
@@ -755,19 +755,10 @@ class DataCulpaValidator:
             d['proc_seconds'] = proc_seconds
         return self.watchpoint_lograw(d)
 
-    def watchpoint_lograw(self, data_dict):
-        # this is a tool for logging query information, results, or anything else you want your connector
-        # to expose to the UI of Validator.
-        # recommended fields: query_target, query_string, query_time, number_results
-        pipeline_id = self._get_pipeline_id()
-        if pipeline_id is None:
-            pipeline_id = -1
-        url = self._get_base_url("data/watchpoint-log/%s" % pipeline_id)
-        params = { "data": data_dict }
-        rs_str = json.dumps(params, cls=json.JSONEncoder, default=str)
-        r = self.POST(url, rs_str)
-        jr = self._parseJson(url, r.content)
-        return jr
+    def watchpoint_lograw(self, message, data_dict=None, sev='info'):
+        llc = LocalLogCache(logger_object=None)
+        llc._log(sev, message, dd=data_dict)
+        return self.drain_logs(llc)
 
     def drain_logs(self, llc):
         assert isinstance(llc, LocalLogCache)
