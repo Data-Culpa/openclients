@@ -465,6 +465,10 @@ class DataCulpaValidator:
         """
         Send the raw file contents to Validator and commit the queue.
         """
+        if self._queue_id is None:
+            self._open_queue() #"queue_id is not set; call open_queue first"
+            assert self._queue_id is not None, "error opening queue"
+
         post_url = self._get_base_url("batch-validate/%s" % self._queue_id)
 
         if headers is None:
@@ -726,6 +730,7 @@ class DataCulpaValidator:
 
         p = { "api_key": self.api_access_id, "secret": self.api_secret }
         js = json.dumps(p)
+        
         # need to catch DataCulpaBadServerCodeError and look at 401 here...
         r = self.POST(login_url, js, is_login=True)
         jr = self._parseJson(login_url, r.content)
@@ -735,6 +740,13 @@ class DataCulpaValidator:
 
     def test_login(self):
         test_url = self._get_base_url("auth/test-login")
+
+    def get_logs(self, pipeline_id=None):
+        if pipeline_id is None:
+            pipeline_id = self._get_pipeline_id()
+        url = self._get_base_url("data/watchpoint-logs/%s" % pipeline_id)
+        r = self.GET(url)
+        return self._parseJson(url, r.content)
 
     def watchpoint_log_message(self, msg):
         return self.watchpoint_lograw({'message': msg})
