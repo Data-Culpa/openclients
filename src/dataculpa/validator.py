@@ -2,7 +2,7 @@
 # validator.py
 # Data Culpa Validator Python Client
 #
-# Copyright (c) 2020-2021 Data Culpa, Inc.
+# Copyright (c) 2020-2022 Data Culpa, Inc.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to 
