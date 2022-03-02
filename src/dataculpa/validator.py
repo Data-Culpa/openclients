@@ -111,9 +111,9 @@ class DataCulpaValidator:
                  watchpoint_environment="default",
                  watchpoint_stage="default",
                  watchpoint_version="default",
-                 protocol="http", 
+                 protocol="https",      # https for *.dataculpa.cloud hosts
                  dc_host="localhost", 
-                 dc_port=7777, 
+                 dc_port=7778,          # 7778 for *.dataculpa.cloud hosts; on-prem might be 7777 depending on your configuration.
                  api_access_id=None, 
                  api_secret=None,
                  queue_window=20,
