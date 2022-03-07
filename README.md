@@ -25,9 +25,9 @@ Calling Validator from your pipeline is as simple as modifying the pipeline code
                                   watchpoint_environment="default",
                                   watchpoint_stage="default",
                                   watchpoint_version="default",
-                                  protocol="http", 
+                                  protocol="http",  # https if you're using a *.dataculpa.cloud host
                                   dc_host="localhost", 
-                                  dc_port=7777, 
+                                  dc_port=7778,     # sometimes 7777, but always 7778 for *.dataculpa.cloud hosts
                                   api_access_id=None, 
                                   api_secret=None,
                                   queue_window=20,
