@@ -379,8 +379,9 @@ class DataCulpaValidator:
 
         return self._pipeline_id
 
-    def get_config(self):
-        _id = self._get_pipeline_id()
+    def get_config(self, _id=None):
+        if _id is None:
+            _id = self._get_pipeline_id()
 
         if _id is not None:
             # now we can get the config...
