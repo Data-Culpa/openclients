@@ -52,7 +52,8 @@ def main():
                             dc_host=DC_HOST,
                             dc_port=DC_PORT,
                             api_access_id=DC_USER,
-                            api_secret=DC_SECRET)
+                            api_secret=DC_SECRET,
+                            _open_queue=False)
     
     res = dc.getWatchpointVariations("watchpoint-name2")
     # res = [{'context': 'default',
@@ -68,7 +69,8 @@ def main():
 
     # Get a 0/1 that things are working.
     rc = dc.test_connection()
-    print(rc)
+    if rc != 0:
+        print(f"Error connecting to Validator: {rc}")
 
     try:
         dc.run_now(print_debug=True)        # returns nothing
