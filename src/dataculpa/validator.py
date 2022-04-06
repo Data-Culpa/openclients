@@ -85,14 +85,15 @@ class DataCulpaBadServerCodeError(Exception):
         self.message = "Unexpected status code %s: %s" % (status_code, message)
         super().__init__(self.message)
 
-def log_error(s):
-    return
+class DataCulpaWatchpointNotDefined(Exception):
+    def __init__(self):
+        self.message = "No id found on the server for the supplied watchpoint spec"
+        super().__init__(self.message)
 
-def log_info(s):
-    return
-
-def log_debug(s):
-    return
+class DataCulpaServerError(Exception):
+    def __init__(self, msg):
+        self.message = msg
+        super().__init__(self.message)
 
 def show_versions():
     # print out some version debug stuff... 
@@ -375,9 +376,35 @@ class DataCulpaValidator:
             url = self._get_base_url("data/metadata/pipeline-id/") + self._build_pipeline_url_suffix()
             r = self.GET(url)
             jr = self._parseJson(url, r.content)
+            # FIXME: need to handle results here better.
             self._pipeline_id = jr.get('id')
 
         return self._pipeline_id
+
+    def run_now(self, print_debug=False):
+        """
+            Runs a watchpoint that has been configured with a built-in connector, such as for Snowflake or BigQuery.
+
+            Use this to execute Validator monitoring immediately after pushing data into your data warehouse, vs waiting
+            for a scheduled time.
+
+            If you use timeshift on the connector, it is safe to keep both the scheduled job and the ad hoc invocation from
+            your application.
+        """
+        _id = self._get_pipeline_id()
+        if _id is None:
+            raise DataCulpaWatchpointNotDefined
+
+        url = self._get_base_url("data/metadata/run-now")
+        r = self.POST(url, json.dumps({ 'pipeline_id': _id }))
+        jr = self._parseJson(url, r.content)
+        if print_debug:
+            print("RESULT: ", jr)
+        if jr.get('had_error', False) == True:
+            msg = jr.get('error_msg', 'missing error message from server')
+            raise DataCulpaServerError(msg)
+
+        return
 
     def get_config(self, _id=None):
         if _id is None:
