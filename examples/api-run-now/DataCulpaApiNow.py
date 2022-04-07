@@ -56,12 +56,13 @@ def main():
                             _open_queue=False)
     
     res = dc.getWatchpointVariations("watchpoint-name2")
+    assert len(res) == 1, "Multiple (or zero!) watchpoints found; need to add code to specify which one we want."
     # res = [{'context': 'default',
     #         'create_time': '2022-04-06T04:29:52.075885',
     #         'name': 'watchpoint-name',
     #         'stage': 'default',
     #         'version': 'default'}]
-    # dc.setWatchpointName(res[0].get('name'))
+    dc.setWatchpointName(res[0].get('name'))
 
     # Some undercover verification:
     # watchpoint_id = dc._get_pipeline_id()
