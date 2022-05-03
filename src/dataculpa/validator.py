@@ -748,6 +748,14 @@ class DataCulpaValidator:
         jr = self._parseJson(url, r.content)
         return jr
 
+    def remote_version(self):
+        url = self._get_base_url("data/metadata/version")
+        r = self.GET(url)
+        jr = self._parseJson(url, r.content)
+        if jr is not None and type(jr) == dict:
+            return jr.get('version') # there is also a status field.
+        return jr
+
     def login(self):
         if self.local_only:
             return
